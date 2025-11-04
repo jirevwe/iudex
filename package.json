@@ -1,13 +1,16 @@
 {
   "name": "api-guardian",
   "version": "1.0.0",
+  "type": "module",
   "description": "JavaScript API testing framework with built-in governance and security checks",
   "main": "index.js",
   "bin": {
     "api-guardian": "./cli/index.js"
   },
   "scripts": {
-    "test": "node cli/index.js run",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit",
+    "test:integration": "node cli/index.js run",
     "init": "node cli/index.js init",
     "validate": "node cli/index.js validate",
     "report": "node cli/index.js report",
