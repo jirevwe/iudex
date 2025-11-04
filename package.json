@@ -1,11 +1,11 @@
 {
-  "name": "api-guardian",
+  "name": "iudex",
   "version": "1.0.0",
   "type": "module",
   "description": "JavaScript API testing framework with built-in governance and security checks",
   "main": "index.js",
   "bin": {
-    "api-guardian": "./cli/index.js"
+    "iudex": "./cli/index.js"
   },
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
@@ -25,7 +25,7 @@
     "rest",
     "http"
   ],
-  "author": "Your Team",
+  "author": "Raymond Tukpe",
   "license": "MIT",
   "dependencies": {
     "ajv": "^8.12.0",

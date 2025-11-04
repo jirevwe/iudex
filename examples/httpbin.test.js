@@ -21,7 +21,7 @@ describe('HTTPBin API Examples', () => {
 
     test('should post JSON data', async (context) => {
         const payload = {
-            name: 'API Guardian',
+            name: 'Iudex',
             type: 'testing-framework',
             timestamp: context.testData.timestamp
         };
@@ -29,7 +29,7 @@ describe('HTTPBin API Examples', () => {
         const response = await context.request.post(`${baseUrl}/post`, payload);
 
         expect(response.status).toBe(200);
-        expect(response.data.json.name).toBe('API Guardian');
+        expect(response.data.json.name).toBe('Iudex');
         expect(response.data.json.type).toBe('testing-framework');
         expect(response.data.json.timestamp).toBe(context.testData.timestamp);
     });
@@ -154,12 +154,12 @@ describe('HTTPBin Response Format Tests', () => {
     test('should get user agent info', async (context) => {
         const response = await context.request.get(`${baseUrl}/user-agent`, {
             headers: {
-                'User-Agent': 'API-Guardian/1.0'
+                'User-Agent': 'Iudex/1.0'
             }
         });
 
         expect(response.status).toBe(200);
-        expect(response.data['user-agent']).toBe('API-Guardian/1.0');
+        expect(response.data['user-agent']).toBe('Iudex/1.0');
     });
 });
 

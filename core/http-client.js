@@ -1,4 +1,4 @@
-// API Guardian - HTTP Client (compatible with postman-request)
+// Iudex - HTTP Client (compatible with postman-request)
 import axios from 'axios';
 
 export class HttpClient {

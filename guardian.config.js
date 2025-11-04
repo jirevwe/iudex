@@ -1,4 +1,4 @@
-// API Guardian Configuration
+// Iudex Configuration
 export default {
     // Test execution
     testMatch: ['tests/**/*.test.js', 'examples/**/*.test.js'],

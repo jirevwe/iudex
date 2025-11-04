@@ -1,8 +1,8 @@
-# API Guardian Framework 🛡️
+# Iudex Framework 🛡️
 
 > JavaScript-first API testing framework with built-in governance and security
 
-## Why API Guardian?
+## Why Iudex?
 
 - ✅ **JavaScript Native** - Your team already knows it
 - ✅ **Compatible** - Works with postman-request and modern tools
@@ -17,14 +17,14 @@
 ### Installation
 
 ```bash
-npm install api-guardian --save-dev
+npm install iudex --save-dev
 ```
 
 ### Write Your First Test
 
 ```javascript
 // tests/users.test.js
-import { describe, test, expect } from 'api-guardian';
+import { describe, test, expect } from 'iudex';
 
 describe('Users API', () => {
   test('should get all users', async ({ request }) => {
@@ -52,13 +52,13 @@ describe('Users API', () => {
 ### Run Tests
 
 ```bash
-npx api-guardian run
+npx iudex run
 ```
 
 ### Generate Report
 
 ```bash
-npx api-guardian report --format github-pages --output docs/
+npx iudex report --format github-pages --output docs/
 ```
 
 ## Features
@@ -133,16 +133,16 @@ export default {
 
 ```bash
 # Run tests
-api-guardian run [pattern]
+iudex run [pattern]
 
 # Generate report
-api-guardian report --format github-pages --output docs/
+iudex report --format github-pages --output docs/
 
 # Import Postman collection
-api-guardian import collection.json --output tests/
+iudex import collection.json --output tests/
 
 # Validate API spec
-api-guardian validate --spec openapi.yaml
+iudex validate --spec openapi.yaml
 ```
 
 ## CI/CD Integration
@@ -166,10 +166,10 @@ jobs:
         env:
           API_BASE_URL: \${{ secrets.API_BASE_URL }}
           API_KEY: \${{ secrets.API_KEY }}
-        run: npx api-guardian run
-      
+        run: npx iudex run
+
       - name: Generate Report
-        run: npx api-guardian report --format github-pages --output docs/
+        run: npx iudex report --format github-pages --output docs/
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -181,7 +181,7 @@ jobs:
 ## Project Structure
 
 ```
-api-guardian/
+iudex/
 ├── core/
 │   ├── dsl.js              # Test definition DSL
 │   ├── runner.js           # Test execution engine

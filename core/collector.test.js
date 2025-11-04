@@ -17,14 +17,14 @@ describe('ResultCollector', () => {
             expect(results.summary.passed).toBe(0);
             expect(results.summary.failed).toBe(0);
             expect(results.summary.skipped).toBe(0);
-            expect(results.metadata.framework).toBe('API Guardian');
+            expect(results.metadata.framework).toBe('Iudex');
         });
 
         test('should have metadata', () => {
             const results = collector.getResults();
 
             expect(results.metadata).toBeDefined();
-            expect(results.metadata.framework).toBe('API Guardian');
+            expect(results.metadata.framework).toBe('Iudex');
             expect(results.metadata.version).toBe('1.0.0');
         });
     });
@@ -360,7 +360,7 @@ describe('ResultCollector', () => {
 
             expect(parsed.suites).toHaveLength(1);
             expect(parsed.summary.total).toBe(2);
-            expect(parsed.metadata.framework).toBe('API Guardian');
+            expect(parsed.metadata.framework).toBe('Iudex');
         });
 
         test('should export to JUnit XML', () => {

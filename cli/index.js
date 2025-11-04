@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// API Guardian - CLI
+// Iudex - CLI
 import { Command } from 'commander';
 import { pathToFileURL } from 'url';
 import { existsSync } from 'fs';
@@ -69,7 +69,7 @@ program
             // Report results
             reporter.report(collector.getResults());
 
-            // Exit with appropriate code
+            // Exit with the appropriate error code
             process.exit(collector.hasFailures() ? 1 : 0);
 
         } catch (error) {

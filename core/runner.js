@@ -1,4 +1,4 @@
-// API Guardian - Test Runner
+// Iudex - Test Runner
 import { getTestSuites } from './dsl.js';
 import { HttpClient } from './http-client.js';
 

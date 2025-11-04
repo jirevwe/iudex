@@ -1,4 +1,4 @@
-// API Guardian - Test Definition DSL
+// Iudex - Test Definition DSL
 const testSuites = [];
 const currentSuite = {tests: [], hooks: {}};
 

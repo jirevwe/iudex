@@ -1,4 +1,4 @@
-// API Guardian - Result Collector
+// Iudex - Result Collector
 // Aggregates and organizes test results for reporting
 
 export class ResultCollector {
@@ -22,7 +22,7 @@ export class ResultCollector {
                 findings: []
             },
             metadata: {
-                framework: 'API Guardian',
+                framework: 'Iudex',
                 version: '1.0.0',
                 environment: process.env.NODE_ENV || 'development'
             }
@@ -330,7 +330,7 @@ export class ResultCollector {
                 findings: []
             },
             metadata: {
-                framework: 'API Guardian',
+                framework: 'Iudex',
                 version: '1.0.0',
                 environment: process.env.NODE_ENV || 'development'
             }

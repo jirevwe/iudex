@@ -1,4 +1,4 @@
-// API Guardian - Console Reporter
+// Iudex - Console Reporter
 // Formats and displays test results in the terminal
 
 import chalk from 'chalk';
@@ -49,7 +49,7 @@ export class ConsoleReporter {
      * Print header
      */
     _printHeader() {
-        console.log(chalk.bold.cyan('🛡️  API Guardian Test Results'));
+        console.log(chalk.bold.cyan('🛡️  Iudex Test Results'));
     }
 
     /**
