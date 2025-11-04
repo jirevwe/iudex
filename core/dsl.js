@@ -118,7 +118,9 @@ export class Expect {
     }
 
     toBe(expected) {
-        if (this.value !== expected) throw new Error(`Expected ${expected}, got ${this.value}`);
+        if (this.isNot ? this.value === expected : this.value !== expected) {
+            throw new Error(`Expected ${this.isNot ? 'not ' : ''}${expected}, got ${this.value}`);
+        }
         return this;
     }
 
