@@ -1,7 +1,7 @@
 export default {
   testEnvironment: 'node',
   transform: {},
-  testMatch: ['**/*.test.js', '!**/node_modules/**', '!**/examples/**'],
+  testMatch: ['**/*.test.js', '!**/node_modules/**', '!**/examples/**', '!**/integration-tests/**'],
   collectCoverageFrom: [
     'core/**/*.js',
     '!core/**/*.test.js',
