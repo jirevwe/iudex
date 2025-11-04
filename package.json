@@ -1,0 +1,48 @@
+{
+  "name": "api-guardian",
+  "version": "1.0.0",
+  "description": "JavaScript API testing framework with built-in governance and security checks",
+  "main": "index.js",
+  "bin": {
+    "api-guardian": "./cli/index.js"
+  },
+  "scripts": {
+    "test": "node cli/index.js run",
+    "init": "node cli/index.js init",
+    "validate": "node cli/index.js validate",
+    "report": "node cli/index.js report",
+    "publish-results": "node cli/index.js publish",
+    "dev": "node --watch cli/index.js run"
+  },
+  "keywords": [
+    "api",
+    "testing",
+    "governance",
+    "security",
+    "rest",
+    "http"
+  ],
+  "author": "Your Team",
+  "license": "MIT",
+  "dependencies": {
+    "postman-request": "^2.88.1-postman.33",
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "joi": "^17.11.0",
+    "js-yaml": "^4.1.0",
+    "lodash": "^4.17.21",
+    "ajv": "^8.12.0",
+    "table": "^6.8.1",
+    "ora": "^5.4.1",
+    "boxen": "^5.1.2",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^8.54.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
