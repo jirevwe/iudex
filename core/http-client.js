@@ -50,20 +50,29 @@ export class HttpClient {
         return this.axios.get(url, {params: options.params || options.qs, ...options});
     }
 
-    async post(url, options = {}) {
-        return this.axios.post(url, options.body || options.data, options);
+    async post(url, data = {}, options = {}) {
+        // Support both post(url, payload) and post(url, {body: payload})
+        const payload = data.body !== undefined ? data.body : (data.data !== undefined ? data.data : data);
+        const config = data.body !== undefined || data.data !== undefined ? data : options;
+        return this.axios.post(url, payload, config);
     }
 
-    async put(url, options = {}) {
-        return this.axios.put(url, options.body || options.data, options);
+    async put(url, data = {}, options = {}) {
+        // Support both put(url, payload) and put(url, {body: payload})
+        const payload = data.body !== undefined ? data.body : (data.data !== undefined ? data.data : data);
+        const config = data.body !== undefined || data.data !== undefined ? data : options;
+        return this.axios.put(url, payload, config);
     }
 
-    async patch(url, options = {}) {
-        return this.axios.patch(url, options.body || options.data, options);
+    async patch(url, data = {}, options = {}) {
+        // Support both patch(url, payload) and patch(url, {body: payload})
+        const payload = data.body !== undefined ? data.body : (data.data !== undefined ? data.data : data);
+        const config = data.body !== undefined || data.data !== undefined ? data : options;
+        return this.axios.patch(url, payload, config);
     }
 
     async delete(url, options = {}) {
-        return this.axios.delete(url, {data: options.body || options.data, ...options});
+        return this.axios.delete(url, options);
     }
 
     async head(url, options = {}) {

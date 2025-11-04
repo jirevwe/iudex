@@ -121,6 +121,38 @@ export class Expect {
         if (this.value !== expected) throw new Error(`Expected ${expected}, got ${this.value}`);
         return this;
     }
+
+    toBeDefined() {
+        if (this.value === undefined) throw new Error('Expected value to be defined');
+        return this;
+    }
+
+    toBeGreaterThanOrEqual(expected) {
+        if (this.value < expected) {
+            throw new Error(`Expected ${this.value} to be greater than or equal to ${expected}`);
+        }
+        return this;
+    }
+
+    toContain(value) {
+        let contains = false;
+        if (typeof this.value === 'string') {
+            contains = this.value.includes(value);
+        } else if (Array.isArray(this.value)) {
+            contains = this.value.includes(value);
+        }
+        if (!contains) {
+            throw new Error(`Expected ${JSON.stringify(this.value)} to contain ${JSON.stringify(value)}`);
+        }
+        return this;
+    }
+
+    toMatch(regex) {
+        if (!regex.test(this.value)) {
+            throw new Error(`Expected ${this.value} to match ${regex}`);
+        }
+        return this;
+    }
 }
 
 export function expect(value) {
