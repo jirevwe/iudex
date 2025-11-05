@@ -1,0 +1,245 @@
+// Iudex - PostgreSQL Reporter
+// Persists test results to PostgreSQL with evolution tracking
+
+import { DatabaseClient } from '../database/client.js';
+import { TestRepository } from '../database/repository.js';
+import { execSync } from 'child_process';
+
+export class PostgresReporter {
+  constructor(config = {}) {
+    this.config = config;
+    this.dbClient = null;
+    this.repository = null;
+    this.enabled = config.enabled !== false;
+  }
+
+  /**
+   * Initialize database connection
+   */
+  async initialize() {
+    if (!this.enabled) {
+      return;
+    }
+
+    this.dbClient = new DatabaseClient(this.config);
+    await this.dbClient.connect();
+    this.repository = new TestRepository(this.dbClient);
+  }
+
+  /**
+   * Get git metadata for the current environment
+   * @returns {Object} Git metadata
+   */
+  getGitMetadata() {
+    try {
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
+      const commitSha = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+      const commitMessage = execSync('git log -1 --pretty=%B', { encoding: 'utf-8' }).trim();
+
+      return { branch, commitSha, commitMessage };
+    } catch (error) {
+      // Not a git repository or git not available
+      return {
+        branch: null,
+        commitSha: null,
+        commitMessage: null
+      };
+    }
+  }
+
+  /**
+   * Report test results to PostgreSQL
+   * @param {Object} collector - Result collector instance
+   */
+  async report(collector) {
+    if (!this.enabled) {
+      return;
+    }
+
+    try {
+      await this.initialize();
+
+      const summary = collector.getSummary();
+      const metadata = collector.getMetadata();
+      const gitInfo = this.getGitMetadata();
+
+      // Get or create test suite
+      const suiteId = await this.repository.createOrGetSuite(
+        metadata.suiteName || 'Default Suite',
+        metadata.description
+      );
+
+      // Prepare test run data
+      const runData = {
+        environment: metadata.environment || process.env.NODE_ENV || 'development',
+        branch: gitInfo.branch,
+        commitSha: gitInfo.commitSha,
+        commitMessage: gitInfo.commitMessage,
+        status: summary.failed > 0 ? 'failed' : 'passed',
+        totalTests: summary.total,
+        passedTests: summary.passed,
+        failedTests: summary.failed,
+        skippedTests: summary.skipped || 0,
+        durationSeconds: (metadata.duration || 0) / 1000,
+        startedAt: metadata.startTime || new Date(),
+        completedAt: metadata.endTime || new Date(),
+        triggeredBy: process.env.GITHUB_ACTOR || process.env.USER || 'unknown',
+        runUrl: process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+          ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+          : null
+      };
+
+      // Create test run
+      const runId = await this.repository.createTestRun(suiteId, runData);
+
+      // Insert individual test results
+      const testResults = collector.getAllResults();
+      for (const result of testResults) {
+        const testData = {
+          testName: result.test || result.name,
+          testDescription: result.description || null,
+          suiteName: result.suite || metadata.suiteName,
+          testFile: result.file || null,
+          endpoint: result.endpoint || null,
+          httpMethod: result.method || result.httpMethod || null,
+          status: result.status,
+          durationSeconds: (result.duration || 0) / 1000,
+          responseTimeMs: result.responseTime || null,
+          statusCode: result.statusCode || null,
+          errorMessage: result.error || null,
+          errorType: result.errorType || null,
+          stackTrace: result.stack || null,
+          assertionsPassed: result.assertionsPassed || null,
+          assertionsFailed: result.assertionsFailed || null,
+          requestBody: result.requestBody ? JSON.stringify(result.requestBody) : null,
+          responseBody: result.responseBody ? JSON.stringify(result.responseBody) : null
+        };
+
+        await this.repository.createTestResult(runId, testData);
+      }
+
+      console.log(`\n✓ Test results persisted to database (run_id: ${runId})`);
+
+      // Show analytics if available
+      await this.showAnalytics();
+
+    } catch (error) {
+      console.error('\n✗ Failed to persist results to database:', error.message);
+      if (this.config.throwOnError) {
+        throw error;
+      }
+    } finally {
+      if (this.dbClient) {
+        await this.dbClient.close();
+      }
+    }
+  }
+
+  /**
+   * Show quick analytics after reporting
+   */
+  async showAnalytics() {
+    try {
+      // Get flaky tests
+      const flakyTests = await this.repository.getFlakyTests(5);
+      if (flakyTests.length > 0) {
+        console.log(`\n⚠️  Flaky tests detected: ${flakyTests.length}`);
+        flakyTests.slice(0, 3).forEach(test => {
+          console.log(`   - ${test.current_name} (${test.failure_rate}% failure rate)`);
+        });
+      }
+
+      // Get regressions
+      const regressions = await this.repository.getRecentRegressions();
+      if (regressions.length > 0) {
+        console.log(`\n🔴 Recent regressions: ${regressions.length}`);
+        regressions.slice(0, 3).forEach(test => {
+          console.log(`   - ${test.current_name} (${test.endpoint || 'N/A'})`);
+        });
+      }
+
+      // Get unhealthy tests
+      const healthScores = await this.repository.getTestHealthScores(5);
+      const unhealthy = healthScores.filter(t => t.overall_health_score < 70);
+      if (unhealthy.length > 0) {
+        console.log(`\n⚕️  Unhealthy tests (score < 70): ${unhealthy.length}`);
+        unhealthy.slice(0, 3).forEach(test => {
+          console.log(`   - ${test.current_name} (score: ${test.overall_health_score})`);
+        });
+      }
+
+    } catch (error) {
+      // Silently fail analytics - don't block main reporting
+    }
+  }
+
+  /**
+   * Query analytics from the database
+   * @param {string} queryType - Type of analytics query
+   * @param {Object} options - Query options
+   * @returns {Array} Query results
+   */
+  async getAnalytics(queryType, options = {}) {
+    if (!this.enabled) {
+      throw new Error('PostgreSQL reporter is not enabled');
+    }
+
+    await this.initialize();
+
+    try {
+      switch (queryType) {
+        case 'latest_runs':
+          return await this.repository.getLatestRuns(options.environment, options.limit);
+
+        case 'endpoint_success_rates':
+          return await this.repository.getEndpointSuccessRates();
+
+        case 'flaky_tests':
+          return await this.repository.getFlakyTests(options.minRuns);
+
+        case 'regressions':
+          return await this.repository.getRecentRegressions();
+
+        case 'health_scores':
+          return await this.repository.getTestHealthScores(options.limit);
+
+        case 'daily_stats':
+          return await this.repository.getDailyStats(options.days);
+
+        case 'test_history':
+          if (!options.testId) {
+            throw new Error('testId is required for test_history query');
+          }
+          return await this.repository.getTestCompleteHistory(options.testId);
+
+        case 'evolution_chain':
+          if (!options.testId) {
+            throw new Error('testId is required for evolution_chain query');
+          }
+          return await this.repository.getTestEvolutionChain(options.testId);
+
+        case 'search':
+          if (!options.searchTerm) {
+            throw new Error('searchTerm is required for search query');
+          }
+          return await this.repository.searchTests(options.searchTerm, options.limit);
+
+        default:
+          throw new Error(`Unknown analytics query type: ${queryType}`);
+      }
+    } finally {
+      if (this.dbClient) {
+        await this.dbClient.close();
+      }
+    }
+  }
+}
+
+/**
+ * Create a PostgreSQL reporter
+ * @param {Object} config - Reporter configuration
+ * @returns {PostgresReporter}
+ */
+export function createReporter(config) {
+  return new PostgresReporter(config);
+}

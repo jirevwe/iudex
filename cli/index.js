@@ -12,9 +12,9 @@ import { ConsoleReporter } from '../reporters/console.js';
 const program = new Command();
 
 program
-    .name('api-guardian')
-    .description('JavaScript API testing framework with built-in governance and security')
-    .version('1.0.0');
+    .name('iudex')
+    .description('API testing framework with built-in governance and security')
+    .version('0.1.0');
 
 /**
  * Run command - Execute tests
@@ -22,7 +22,7 @@ program
 program
     .command('run [pattern]')
     .description('Run API tests')
-    .option('-c, --config <path>', 'Path to config file', 'guardian.config.js')
+    .option('-c, --config <path>', 'Path to config file', 'iudex.config.js')
     .option('-t, --timeout <ms>', 'Test timeout in milliseconds')
     .option('-r, --retries <count>', 'Number of retries for failed tests')
     .option('--bail', 'Stop after first failure')
@@ -116,10 +116,10 @@ program
  */
 program
     .command('init')
-    .description('Initialize guardian.config.js')
+    .description('Initialize iudex.config.js')
     .action(() => {
         console.log('Configuration initialization will be implemented soon');
-        console.log('For now, create guardian.config.js manually');
+        console.log('For now, create iudex.config.js manually');
     });
 
 /**

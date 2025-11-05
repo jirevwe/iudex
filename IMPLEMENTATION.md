@@ -139,7 +139,7 @@ export class ConsoleReporter {
     report(collector) {
         const summary = collector.getSummary();
 
-        console.log('\\n' + chalk.bold('API Guardian Test Results'));
+        console.log('\\n' + chalk.bold('Iudex Test Results'));
         console.log(chalk.gray('='.repeat(50)));
 
         // Test results
@@ -198,7 +198,259 @@ program
 program.parse();
 ```
 
-### Week 2: Governance & Security (Days 6-10)
+### Week 2: Data Persistence Layer (Days 6-8)
+
+#### Day 6: Database Schema & Client
+**Files:** `database/schema.sql`, `database/client.js`
+
+**Purpose:** Store test results in PostgreSQL for historical analysis and dashboard reporting.
+
+**Schema Design:**
+- `test_suites` - Test collections/modules
+- `test_runs` - Individual test execution runs
+- `test_results` - Individual test case results
+- Views for analytics (latest runs, success rates, flaky tests)
+
+**Database Client Implementation:**
+```javascript
+import pg from 'pg';
+const { Pool } = pg;
+
+export class DatabaseClient {
+  constructor(config) {
+    this.pool = new Pool({
+      host: config.host || process.env.DB_HOST,
+      port: config.port || process.env.DB_PORT || 5432,
+      database: config.database || process.env.DB_NAME,
+      user: config.user || process.env.DB_USER,
+      password: config.password || process.env.DB_PASSWORD,
+      ssl: config.ssl || false,
+      max: config.poolSize || 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+  }
+
+  async query(text, params) {
+    const start = Date.now();
+    try {
+      const res = await this.pool.query(text, params);
+      const duration = Date.now() - start;
+      return { rows: res.rows, duration, rowCount: res.rowCount };
+    } catch (error) {
+      console.error('Database query error:', error);
+      throw error;
+    }
+  }
+
+  async close() {
+    await this.pool.end();
+  }
+}
+```
+
+#### Day 7: Database Repository
+**File:** `database/repository.js`
+
+**Implementation:**
+```javascript
+export class TestRepository {
+  constructor(dbClient) {
+    this.db = dbClient;
+  }
+
+  async createOrGetSuite(name, testType, description = null) {
+    const result = await this.db.query(
+      `INSERT INTO test_suites (name, test_type, description)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (name, test_type)
+       DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+       RETURNING id`,
+      [name, testType, description]
+    );
+    return result.rows[0].id;
+  }
+
+  async createTestRun(suiteId, runData) {
+    const result = await this.db.query(
+      `INSERT INTO test_runs (
+        suite_id, environment, branch, commit_sha, commit_message,
+        status, total_tests, passed_tests, failed_tests, skipped_tests,
+        duration_seconds, started_at, completed_at, triggered_by, run_url
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      RETURNING id`,
+      [
+        suiteId, runData.environment, runData.branch, runData.commitSha,
+        runData.commitMessage, runData.status, runData.totalTests,
+        runData.passedTests, runData.failedTests, runData.skippedTests,
+        runData.durationSeconds, runData.startedAt, runData.completedAt,
+        runData.triggeredBy, runData.runUrl
+      ]
+    );
+    return result.rows[0].id;
+  }
+
+  async createTestResult(runId, testData) {
+    await this.db.query(
+      `INSERT INTO test_results (
+        run_id, test_name, test_file, endpoint, http_method,
+        status, duration_seconds, response_time_ms, status_code,
+        error_message, error_type, stack_trace,
+        assertions_passed, assertions_failed,
+        request_body, response_body
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+      [
+        runId, testData.testName, testData.testFile, testData.endpoint,
+        testData.httpMethod, testData.status, testData.durationSeconds,
+        testData.responseTimeMs, testData.statusCode, testData.errorMessage,
+        testData.errorType, testData.stackTrace, testData.assertionsPassed,
+        testData.assertionsFailed, testData.requestBody, testData.responseBody
+      ]
+    );
+  }
+
+  async getLatestRuns(environment = null, limit = 10) {
+    const query = environment
+      ? `SELECT * FROM latest_test_runs WHERE environment = $1 LIMIT $2`
+      : `SELECT * FROM latest_test_runs LIMIT $1`;
+    const params = environment ? [environment, limit] : [limit];
+    const result = await this.db.query(query, params);
+    return result.rows;
+  }
+
+  async getEndpointSuccessRates() {
+    const result = await this.db.query(
+      `SELECT * FROM endpoint_success_rates ORDER BY success_rate ASC`
+    );
+    return result.rows;
+  }
+
+  async getFlakyTests(minRuns = 10) {
+    const result = await this.db.query(
+      `SELECT * FROM flaky_tests WHERE total_runs >= $1`,
+      [minRuns]
+    );
+    return result.rows;
+  }
+
+  async getDailyStats(days = 30) {
+    const result = await this.db.query(
+      `SELECT * FROM daily_test_stats
+       WHERE test_date >= CURRENT_DATE - INTERVAL '${days} days'
+       ORDER BY test_date DESC`
+    );
+    return result.rows;
+  }
+}
+```
+
+#### Day 8: PostgreSQL Reporter
+**File:** `reporters/postgres.js`
+
+**Implementation:**
+```javascript
+import { DatabaseClient } from '../database/client.js';
+import { TestRepository } from '../database/repository.js';
+
+export class PostgresReporter {
+  constructor(config) {
+    this.config = config;
+    this.dbClient = null;
+    this.repository = null;
+  }
+
+  async initialize() {
+    this.dbClient = new DatabaseClient(this.config.database);
+    this.repository = new TestRepository(this.dbClient);
+  }
+
+  async report(collector) {
+    try {
+      await this.initialize();
+
+      const summary = collector.getSummary();
+      const metadata = collector.getMetadata();
+
+      // Create or get test suite
+      const suiteId = await this.repository.createOrGetSuite(
+        metadata.suiteName || 'Default Suite',
+        'iudex',
+        metadata.description
+      );
+
+      // Create test run
+      const runData = {
+        environment: metadata.environment,
+        branch: metadata.branch,
+        commitSha: metadata.commitSha,
+        commitMessage: metadata.commitMessage,
+        status: summary.failed > 0 ? 'failed' : 'passed',
+        totalTests: summary.total,
+        passedTests: summary.passed,
+        failedTests: summary.failed,
+        skippedTests: summary.skipped || 0,
+        durationSeconds: metadata.duration / 1000,
+        startedAt: metadata.startTime,
+        completedAt: metadata.endTime,
+        triggeredBy: metadata.triggeredBy || process.env.USER,
+        runUrl: metadata.runUrl
+      };
+
+      const runId = await this.repository.createTestRun(suiteId, runData);
+
+      // Insert individual test results
+      for (const result of collector.testResults) {
+        const testData = {
+          testName: `${result.suite} > ${result.test}`,
+          testFile: result.file,
+          endpoint: result.endpoint,
+          httpMethod: result.method,
+          status: result.status,
+          durationSeconds: result.duration / 1000,
+          responseTimeMs: result.responseTime,
+          statusCode: result.statusCode,
+          errorMessage: result.error,
+          errorType: result.errorType,
+          stackTrace: result.stack,
+          assertionsPassed: result.assertionsPassed,
+          assertionsFailed: result.assertionsFailed,
+          requestBody: JSON.stringify(result.requestBody),
+          responseBody: JSON.stringify(result.responseBody)
+        };
+
+        await this.repository.createTestResult(runId, testData);
+      }
+
+      console.log(`✓ Test results persisted to database (run_id: ${runId})`);
+    } catch (error) {
+      console.error('Failed to persist results to database:', error.message);
+    } finally {
+      if (this.dbClient) {
+        await this.dbClient.close();
+      }
+    }
+  }
+}
+```
+
+**Configuration:**
+```javascript
+// iudex.config.js
+export default {
+  database: {
+    enabled: true,
+    host: 'localhost',
+    port: 5432,
+    database: 'iudex_test_results',
+    user: 'iudex_user',
+    password: process.env.DB_PASSWORD,
+    ssl: false
+  },
+  reporters: ['console', 'postgres']
+};
+```
+
+### Week 2: Governance & Security (Days 9-13)
 
 #### Governance Engine
 **File:** `governance/engine.js`
@@ -245,7 +497,7 @@ export class SecurityScanner {
 }
 ```
 
-### Week 3: Reporting (Days 11-15)
+### Week 3: Advanced Reporting (Days 14-18)
 
 #### GitHub Pages Reporter
 **File:** `reporters/github-pages.js`
@@ -257,12 +509,12 @@ Generate a static HTML dashboard with:
 - Charts and graphs
 - Historical comparison
 
-### Week 4: Ecosystem (Days 16-20)
+### Week 4: Ecosystem (Days 19-23)
 
 #### Postman Import
 **File:** `plugins/postman-compat.js`
 
-Convert Postman collections to API Guardian tests.
+Convert Postman collections to Iudex tests.
 
 ## 🚀 Quick Implementation Strategy
 
@@ -281,21 +533,30 @@ Follow the week-by-week plan above.
 
 ## 📁 File-by-File Checklist
 
-### Core (Week 1)
-- [ ] core/runner.js
-- [ ] core/collector.js
-- [ ] reporters/console.js
-- [ ] cli/index.js
-- [ ] cli/config-loader.js
+### Core (Week 1) ✅ COMPLETED
+- [x] core/runner.js
+- [x] core/collector.js
+- [x] core/dsl.js
+- [x] core/http-client.js
+- [x] reporters/console.js
+- [x] cli/index.js
 
-### Governance (Week 2)
+### Data Persistence (Week 2: Days 6-8) 🎯 PRIORITY
+- [ ] database/schema.sql (see sample_schema.sql)
+- [ ] database/client.js - PostgreSQL connection pool
+- [ ] database/repository.js - Data access layer
+- [ ] database/migrations.js - Schema migration support
+- [ ] reporters/postgres.js - Persist results to database
+- [ ] Update iudex.config.js with database settings
+
+### Governance (Week 2: Days 9-13)
 - [ ] governance/engine.js
 - [ ] governance/rules/versioning.js
 - [ ] governance/rules/naming.js
 - [ ] governance/rules/pagination.js
 - [ ] governance/rules/http-methods.js
 
-### Security (Week 2)
+### Security (Week 2: Days 9-13)
 - [ ] security/scanner.js
 - [ ] security/checks/authentication.js
 - [ ] security/checks/authorization.js
@@ -303,9 +564,8 @@ Follow the week-by-week plan above.
 - [ ] security/checks/ssl-tls.js
 - [ ] security/checks/headers.js
 
-### Reporting (Week 3)
+### Reporting (Week 3: Days 14-18)
 - [ ] reporters/github-pages.js
-- [ ] reporters/backend.js
 - [ ] reporters/json.js
 - [ ] reporters/junit.js
 - [ ] reporters/templates/ (HTML/CSS/JS)
@@ -316,12 +576,28 @@ Follow the week-by-week plan above.
 
 ## 🎯 Success Metrics
 
-- [ ] Can run tests from CLI
-- [ ] Tests pass/fail correctly
+### Week 1 ✅ COMPLETED
+- [x] Can run tests from CLI
+- [x] Tests pass/fail correctly
+- [x] Console reporter works
+- [x] HTTP client functional
+- [x] 139 unit tests passing
+
+### Week 2 (Priority: Days 6-8)
+- [ ] Test results persist to PostgreSQL
+- [ ] Historical data queryable
+- [ ] Database views working (latest runs, success rates, flaky tests)
+- [ ] Multiple reporters can run simultaneously (console + postgres)
+
+### Week 2 (Days 9-13)
 - [ ] Governance violations detected
 - [ ] Security findings reported
+
+### Week 3
 - [ ] GitHub Pages report generated
-- [ ] Backend integration works
+- [ ] JSON/JUnit export works
+
+### Week 4
 - [ ] Postman collections can import
 
 ## 💡 Tips

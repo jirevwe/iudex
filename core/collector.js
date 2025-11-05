@@ -97,6 +97,62 @@ export class ResultCollector {
     }
 
     /**
+     * Get metadata
+     */
+    getMetadata() {
+        return this.results.metadata;
+    }
+
+    /**
+     * Set metadata (allows customization)
+     */
+    setMetadata(metadata) {
+        this.results.metadata = { ...this.results.metadata, ...metadata };
+        return this;
+    }
+
+    /**
+     * Get all test results as flattened array
+     */
+    getAllResults() {
+        const allResults = [];
+        for (const suite of this.results.suites) {
+            for (const test of suite.tests) {
+                allResults.push({
+                    suite: suite.name,
+                    test: test.name,
+                    name: test.name,
+                    description: test.description || null,
+                    file: test.file || null,
+                    endpoint: test.endpoint || null,
+                    method: test.method || test.httpMethod || null,
+                    status: test.status,
+                    duration: test.duration || 0,
+                    responseTime: test.responseTime || null,
+                    statusCode: test.statusCode || null,
+                    error: test.error?.message || test.error || null,
+                    errorType: test.error?.name || null,
+                    stack: test.error?.stack || null,
+                    assertionsPassed: test.assertionsPassed || null,
+                    assertionsFailed: test.assertionsFailed || null,
+                    requestBody: test.requestBody || null,
+                    responseBody: test.responseBody || null,
+                    tags: test.tags || []
+                });
+            }
+        }
+        return allResults;
+    }
+
+    /**
+     * Get all test results including access to raw test objects
+     * This is an alias for backwards compatibility
+     */
+    get testResults() {
+        return this.getAllResults();
+    }
+
+    /**
      * Get failed tests
      */
     getFailedTests() {

@@ -36,7 +36,7 @@ Complete JavaScript-based API testing framework scaffold with:
 
 ### 📋 Configuration & Documentation
 - **package.json** - All dependencies listed
-- **guardian.config.js** - Full configuration example
+- **iudex.config.js** - Full configuration example
 - **README.md** - Complete documentation
 - **IMPLEMENTATION.md** - 4-week implementation roadmap
 - **LICENSE** - MIT License
@@ -148,7 +148,7 @@ Follow the detailed guide in `IMPLEMENTATION.md` Day 1-2.
 
 1. **README.md** - Overview and features
 2. **IMPLEMENTATION.md** - Week-by-week implementation plan
-3. **guardian.config.js** - See all configuration options
+3. **iudex.config.js** - See all configuration options
 4. **examples/users.test.js** - Learn test syntax
 5. **core/dsl.js** - Understand assertion API
 
@@ -166,7 +166,7 @@ Follow the detailed guide in `IMPLEMENTATION.md` Day 1-2.
 
 ### Option 3: Hybrid Approach
 - Use Jest/Mocha as test runner
-- Import API Guardian DSL
+- Import Iudex DSL
 - Add governance/security as plugins
 
 ## 🏗️ Architecture Overview
@@ -214,7 +214,7 @@ Week 2       Week 2      Week 1
 
 - Read IMPLEMENTATION.md for detailed guidance
 - Check examples/users.test.js for usage patterns
-- Review guardian.config.js for configuration options
+- Review iudex.config.js for configuration options
 
 ## 🎉 Ready to Start!
 
@@ -229,7 +229,7 @@ You have everything needed to build a production-ready API testing framework:
 
 ---
 
-**Framework:** API Guardian  
+**Framework:** Iudex  
 **Status:** Scaffold Complete  
 **Timeline:** 4 weeks to production-ready  
 **License:** MIT

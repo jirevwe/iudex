@@ -36,9 +36,22 @@ export default {
         }
     },
 
+    // Database (PostgreSQL persistence)
+    database: {
+        enabled: process.env.DB_ENABLED !== 'false', // Default: true
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT) || 5432,
+        database: process.env.DB_NAME || 'iudex_test_results',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD,
+        ssl: process.env.DB_SSL === 'true' || false,
+        poolSize: parseInt(process.env.DB_POOL_SIZE) || 10
+    },
+
     // Reporters
     reporters: [
         'console',
+        'postgres', // Persist to PostgreSQL database
         ['github-pages', {output: 'docs/'}],
         ['backend', {url: process.env.BACKEND_URL}]
     ],

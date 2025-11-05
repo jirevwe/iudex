@@ -93,7 +93,7 @@ Detects vulnerabilities:
 
 ## Configuration
 
-Create \`guardian.config.js\`:
+Create \`iudex.config.js\`:
 
 ```javascript
 export default {
@@ -233,7 +233,7 @@ expect(response).toHaveRateLimit()
 - [x] HTTP Client (core/http-client.js)
 - [x] Example Governance Rule (governance/rules/rest-standards.js)
 - [x] Example Security Check (security/checks/sensitive-data.js)
-- [x] Configuration System (guardian.config.js)
+- [x] Configuration System (iudex.config.js)
 - [x] Example Tests (examples/users.test.js)
 
 ### ⏳ To Implement (4-week roadmap)
