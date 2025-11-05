@@ -10,7 +10,8 @@ export class PostgresReporter {
     this.config = config;
     this.dbClient = null;
     this.repository = null;
-    this.enabled = config.enabled !== false;
+    // Default to disabled - must be explicitly enabled
+    this.enabled = config.enabled === true;
   }
 
   /**
@@ -63,7 +64,7 @@ export class PostgresReporter {
       const metadata = collector.getMetadata();
       const gitInfo = this.getGitMetadata();
 
-      // Get or create test suite
+      // Get or create a test suite
       const suiteId = await this.repository.createOrGetSuite(
         metadata.suiteName || 'Default Suite',
         metadata.description

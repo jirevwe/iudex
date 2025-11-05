@@ -8,6 +8,7 @@ import { resolve, join } from 'path';
 import { TestRunner } from '../core/runner.js';
 import { ResultCollector } from '../core/collector.js';
 import { ConsoleReporter } from '../reporters/console.js';
+import { JsonReporter } from '../reporters/json.js';
 import { PostgresReporter } from '../reporters/postgres.js';
 
 const program = new Command();
@@ -67,10 +68,11 @@ program
 
             // Report results to all reporters
             for (const reporter of reporters) {
-                // ConsoleReporter expects results object, PostgresReporter expects collector
+                // ConsoleReporter expects results object
+                // JsonReporter and PostgresReporter expect collector
                 if (reporter instanceof ConsoleReporter) {
                     reporter.report(collector.getResults());
-                } else if (reporter instanceof PostgresReporter) {
+                } else if (reporter instanceof JsonReporter || reporter instanceof PostgresReporter) {
                     await reporter.report(collector);
                 }
             }
@@ -170,12 +172,16 @@ async function loadReporters(config, options) {
     for (const reporterConfig of reporterConfigs) {
         let reporterName, reporterOptions;
 
-        // Handle both string and array formats
+        // Handle string, array, and object formats
         if (typeof reporterConfig === 'string') {
             reporterName = reporterConfig;
             reporterOptions = {};
         } else if (Array.isArray(reporterConfig)) {
             [reporterName, reporterOptions] = reporterConfig;
+        } else if (typeof reporterConfig === 'object' && reporterConfig.reporter) {
+            // Handle {reporter: 'name', config: {...}} format
+            reporterName = reporterConfig.reporter;
+            reporterOptions = reporterConfig.config || {};
         } else {
             continue;
         }
@@ -193,11 +199,17 @@ async function loadReporters(config, options) {
                     });
                     break;
 
+                case 'json':
+                    reporter = new JsonReporter(reporterOptions);
+                    break;
+
                 case 'postgres':
                 case 'postgresql':
-                    if (config.database && config.database.enabled !== false) {
-                        reporter = new PostgresReporter(config.database);
-                    }
+                    // Enable PostgreSQL reporter with provided config
+                    reporter = new PostgresReporter({
+                        ...reporterOptions,
+                        enabled: true
+                    });
                     break;
 
                 case 'github-pages':

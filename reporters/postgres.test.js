@@ -65,7 +65,7 @@ describe('PostgresReporter', () => {
     test('should initialize with default config', () => {
       const r = new PostgresReporter();
       expect(r.config).toEqual({});
-      expect(r.enabled).toBe(true);
+      expect(r.enabled).toBe(false);
       expect(r.dbClient).toBeNull();
       expect(r.repository).toBeNull();
     });

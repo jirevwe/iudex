@@ -36,24 +36,25 @@ export default {
         }
     },
 
-    // Database (PostgreSQL persistence)
-    database: {
-        enabled: process.env.DB_ENABLED !== 'false', // Default: true
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT) || 5432,
-        database: process.env.DB_NAME || 'iudex', // Using 'iudex' database
-        user: process.env.DB_USER || 'postgres',
-        password: process.env.DB_PASSWORD,
-        ssl: process.env.DB_SSL === 'true' || false,
-        poolSize: parseInt(process.env.DB_POOL_SIZE) || 10
-    },
-
-    // Reporters
+    // Reporters (local-first approach)
     reporters: [
-        'console',
-        'postgres', // Persist to PostgreSQL database
-        ['github-pages', {output: 'docs/'}],
-        ['backend', {url: process.env.BACKEND_URL}]
+        'console',  // Always show results in the terminal
+        'json',     // Default: save results locally to .iudex/results/
+
+        // Optional: PostgreSQL reporter (CI/team tracking)
+        // Uncomment or set DB_ENABLED=true to enable
+        ...(process.env.CI === 'true' || process.env.DB_ENABLED === 'true' ? [{
+            reporter: 'postgres',
+            config: {
+                host: process.env.DB_HOST || 'localhost',
+                port: parseInt(process.env.DB_PORT) || 5432,
+                database: process.env.DB_NAME || 'iudex',
+                user: process.env.DB_USER || 'postgres',
+                password: process.env.DB_PASSWORD,
+                ssl: process.env.DB_SSL === 'true' || false,
+                poolSize: parseInt(process.env.DB_POOL_SIZE) || 10
+            }
+        }] : [])
     ],
 
     // Fail thresholds

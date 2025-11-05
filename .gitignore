@@ -16,6 +16,8 @@ logs/
 results/
 coverage/
 .nyc_output/
+.results/
+.test-output/
 
 # OS
 .DS_Store
