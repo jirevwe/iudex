@@ -98,6 +98,7 @@ export class PostgresReporter {
         const testData = {
           testName: result.test || result.name,
           testDescription: result.description || null,
+          testSlug: result.testId || null,  // NEW: Pass test slug
           suiteName: result.suite || metadata.suiteName,
           testFile: result.file || null,
           endpoint: result.endpoint || null,
@@ -205,18 +206,6 @@ export class PostgresReporter {
 
         case 'daily_stats':
           return await this.repository.getDailyStats(options.days);
-
-        case 'test_history':
-          if (!options.testId) {
-            throw new Error('testId is required for test_history query');
-          }
-          return await this.repository.getTestCompleteHistory(options.testId);
-
-        case 'evolution_chain':
-          if (!options.testId) {
-            throw new Error('testId is required for evolution_chain query');
-          }
-          return await this.repository.getTestEvolutionChain(options.testId);
 
         case 'search':
           if (!options.searchTerm) {

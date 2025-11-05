@@ -11,10 +11,10 @@ export class TestRepository {
   /**
    * Generate hash for test identity
    * @param {string} name - Test name
-   * @param {string} description - Test description
+   * @param {string|null} description - Test description
    * @returns {string} SHA256 hash
    */
-  generateTestHash(name, description = '') {
+  generateTestHash(name, description = null) {
     const content = `${name}||${description || ''}`;
     return crypto.createHash('sha256').update(content).digest('hex');
   }
@@ -22,7 +22,7 @@ export class TestRepository {
   /**
    * Create or get a test suite
    * @param {string} name - Suite name
-   * @param {string} description - Suite description
+   * @param {string|null} description - Suite description
    * @returns {number} suite_id
    */
   async createOrGetSuite(name, description = "") {
@@ -73,16 +73,13 @@ export class TestRepository {
   }
 
   /**
-   * Find or create a test record with evolution tracking
-   * This is the core of test identity management
+   * Find or create a test record using slug-based identity
+   * Tests are always identified by slug (auto-generated or explicit)
    *
    * Algorithm:
-   * 1. Compute hash of (name + description)
-   * 2. Look for exact hash match
-   * 3. If found, update last_seen_at and return test_id
-   * 4. If not found, look for similar test by name (potential evolution)
-   * 5. If similar test found, create new test record linked via previous_test_id
-   * 6. If no similar test, create new test record
+   * 1. Try slug lookup
+   * 2. If found → update name/description/hash, increment runs, return test_id
+   * 3. If not found → create a new test record with slug
    *
    * @param {Object} testData - Test information
    * @returns {number} test_id
@@ -91,114 +88,101 @@ export class TestRepository {
     const {
       name,
       description = null,
+      testSlug,
       suiteName = null,
       testFile = null,
       endpoint = null,
       httpMethod = null
     } = testData;
 
+    if (!testSlug) {
+      throw new Error('testSlug is required for test identification');
+    }
+
     const testHash = this.generateTestHash(name, description);
 
-    // 1. Try exact hash match (test unchanged)
+    // 1. Try slug lookup
     let result = await this.db.query(
-      `SELECT id FROM tests WHERE test_hash = $1`,
-      [testHash]
+      `SELECT id FROM tests WHERE test_slug = $1`,
+      [testSlug]
     );
 
     if (result.rows.length > 0) {
       const testId = result.rows[0].id;
 
-      // Update last_seen_at
+      // Update test metadata (name/description may have changed)
       await this.db.query(
         `UPDATE tests
-         SET last_seen_at = CURRENT_TIMESTAMP,
-             total_runs = total_runs + 1
-         WHERE id = $1`,
+         SET current_name = $1,
+             current_description = $2,
+             test_hash = $3,
+             last_seen_at = CURRENT_TIMESTAMP,
+             total_runs = total_runs + 1,
+             endpoint = COALESCE($4, endpoint),
+             http_method = COALESCE($5, http_method)
+         WHERE id = $6`,
+        [name, description, testHash, endpoint, httpMethod, testId]
+      );
+
+      // Record name/description change in history if hash changed
+      const hashResult = await this.db.query(
+        `SELECT test_hash FROM test_history
+         WHERE test_id = $1 AND valid_to IS NULL`,
         [testId]
       );
+
+      if (hashResult.rows.length > 0 && hashResult.rows[0].test_hash !== testHash) {
+        // Close previous history entry
+        await this.db.query(
+          `UPDATE test_history
+           SET valid_to = CURRENT_TIMESTAMP
+           WHERE test_id = $1 AND valid_to IS NULL`,
+          [testId]
+        );
+
+        // Create new history entry
+        await this.db.query(
+          `INSERT INTO test_history (
+            test_id, name, description, test_hash,
+            valid_from, change_type
+          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 'updated')`,
+          [testId, name, description, testHash]
+        );
+      }
 
       return testId;
     }
 
-    // 2. Look for similar test by exact name match (potential evolution)
-    result = await this.db.query(
-      `SELECT id, test_hash, current_name, current_description
-       FROM tests
-       WHERE current_name = $1
-       AND suite_name = $2
-       ORDER BY last_seen_at DESC
-       LIMIT 1`,
-      [name, suiteName]
-    );
-
-    let previousTestId = null;
-    let evolutionReason = null;
-
-    if (result.rows.length > 0) {
-      const previousTest = result.rows[0];
-      previousTestId = previousTest.id;
-
-      // Determine what changed
-      const nameChanged = previousTest.current_name !== name;
-      const descChanged = (previousTest.current_description || '') !== (description || '');
-
-      if (nameChanged && descChanged) {
-        evolutionReason = 'both_changed';
-      } else if (nameChanged) {
-        evolutionReason = 'name_changed';
-      } else if (descChanged) {
-        evolutionReason = 'description_changed';
-      }
-    }
-
-    // 3. Create new test record
+    // 2. Create a new test record
     result = await this.db.query(
       `INSERT INTO tests (
-        test_hash, current_name, current_description,
+        test_hash, test_slug, current_name, current_description,
         suite_name, test_file, endpoint, http_method,
-        previous_test_id, evolution_reason,
         first_seen_at, last_seen_at, total_runs
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)
       RETURNING id`,
       [
         testHash,
+        testSlug,
         name,
         description,
         suiteName,
         testFile,
         endpoint,
-        httpMethod,
-        previousTestId,
-        evolutionReason
+        httpMethod
       ]
     );
 
     const newTestId = result.rows[0].id;
 
-    // 4. Record in test_history
+    // 3. Record in test_history
     await this.db.query(
       `INSERT INTO test_history (
         test_id, name, description, test_hash,
         valid_from, change_type
-      ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5)`,
-      [
-        newTestId,
-        name,
-        description,
-        testHash,
-        evolutionReason || 'created'
-      ]
+      ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 'created')`,
+      [newTestId, name, description, testHash]
     );
-
-    // 5. If this evolved from a previous test, update the history
-    if (previousTestId) {
-      await this.db.query(
-        `UPDATE test_history
-         SET valid_to = CURRENT_TIMESTAMP
-         WHERE test_id = $1 AND valid_to IS NULL`,
-        [previousTestId]
-      );
-    }
 
     return newTestId;
   }
@@ -213,6 +197,7 @@ export class TestRepository {
     const testId = await this.findOrCreateTest({
       name: testData.testName,
       description: testData.testDescription,
+      testSlug: testData.testSlug,
       suiteName: testData.suiteName,
       testFile: testData.testFile,
       endpoint: testData.endpoint,
@@ -265,7 +250,7 @@ export class TestRepository {
 
   /**
    * Get latest test runs
-   * @param {string} environment - Optional environment filter
+   * @param {string|null} environment - Optional environment filter
    * @param {number} limit - Number of results
    * @returns {Array} Test runs
    */
@@ -324,34 +309,6 @@ export class TestRepository {
        ORDER BY overall_health_score ASC
        LIMIT $1`,
       [limit]
-    );
-    return result.rows;
-  }
-
-  /**
-   * Get complete test history including all evolved versions
-   * @param {number} testId - Test ID
-   * @returns {Array} Complete test history across all versions
-   */
-  async getTestCompleteHistory(testId) {
-    const result = await this.db.query(
-      `SELECT * FROM get_test_complete_history($1)`,
-      [testId]
-    );
-    return result.rows;
-  }
-
-  /**
-   * Get test evolution chain
-   * @param {number} testId - Test ID
-   * @returns {Array} Evolution lineage
-   */
-  async getTestEvolutionChain(testId) {
-    const result = await this.db.query(
-      `SELECT * FROM test_evolution_chain
-       WHERE current_test_id = $1
-       ORDER BY generation`,
-      [testId]
     );
     return result.rows;
   }

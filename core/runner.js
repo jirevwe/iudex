@@ -127,7 +127,10 @@ export class TestRunner {
             duration: 0,
             error: null,
             retries: 0,
-            tags: test.tags
+            tags: test.tags,
+            testId: test.testId || null,
+            endpoint: test.endpoint || null,
+            method: test.method || null
         };
 
         // Skip a test if marked

@@ -2,11 +2,10 @@
 -- PostgreSQL with Test Evolution Tracking
 --
 -- Key Concepts:
--- 1. Tests are identified by slug (preferred) or hash fallback
--- 2. Test records are immutable - a new row for each run
--- 3. Tests can evolve (name/description changes) - linked via previous_test_id
--- 4. Complete test lineage for regression tracking
--- 5. Human-readable slugs (e.g., 'saas.users.onboarding.accept_terms') provide stable identity
+-- 1. Tests are identified by slug (auto-generated from name or explicit)
+-- 2. Test results are immutable - a new row for each run
+-- 3. Tests maintain stable identity via slug, allowing name changes
+-- 4. Test hash stored for skip detection (not for evolution tracking)
 
 -- Drop tables if they exist (for clean setup)
 DROP TABLE IF EXISTS test_results CASCADE;
@@ -48,22 +47,18 @@ CREATE TABLE test_runs (
     )
 );
 
--- Tests (Unique test definitions tracked by hash or slug)
--- This table tracks the IDENTITY of tests across renames and evolution
+-- Tests (Unique test definitions tracked by slug)
+-- This table tracks the IDENTITY of tests allowing names to change
 CREATE TABLE tests (
     id SERIAL PRIMARY KEY,
-    test_hash VARCHAR(64) NOT NULL, -- SHA256(name + description)
-    test_slug VARCHAR(255), -- Optional human-readable ID (e.g., 'saas.users.onboarding.accept_terms')
-    current_name VARCHAR NOT NULL, -- Latest name
+    test_hash VARCHAR(64) NOT NULL, -- SHA256(name + description) - for skip detection
+    test_slug VARCHAR(512) NOT NULL, -- Human-readable ID (e.g., 'saas.users.onboarding.accept_terms')
+    current_name VARCHAR(512) NOT NULL, -- Latest name
     current_description TEXT, -- Latest description
     suite_name VARCHAR(255), -- Which suite this test belongs to
     test_file VARCHAR(255), -- File path
     endpoint VARCHAR(500), -- API endpoint being tested
     http_method VARCHAR(10), -- GET, POST, PUT, DELETE, etc.
-
-    -- Evolution tracking
-    previous_test_id INTEGER REFERENCES tests(id), -- Points to a previous version if evolved
-    evolution_reason VARCHAR, -- 'name_changed', 'description_changed', 'both_changed'
 
     -- Lifecycle
     first_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -74,8 +69,7 @@ CREATE TABLE tests (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    -- Unique constraints: either by hash OR by slug
-    UNIQUE(test_hash),
+    -- Unique constraint on slug (primary identifier)
     UNIQUE(test_slug)
 );
 
@@ -84,13 +78,13 @@ CREATE TABLE tests (
 CREATE TABLE test_history (
     id SERIAL PRIMARY KEY,
     test_id INTEGER NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
-    name VARCHAR(500) NOT NULL,
+    name VARCHAR(512) NOT NULL,
     description TEXT,
     test_hash VARCHAR(64) NOT NULL,
     valid_from TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     valid_to TIMESTAMP, -- NULL means current version
     changed_by VARCHAR(255), -- Who made the change
-    change_type VARCHAR(50), -- 'created', 'name_changed', 'description_changed', 'both_changed'
+    change_type VARCHAR(50), -- 'updated', 'created'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -102,7 +96,7 @@ CREATE TABLE test_results (
     test_id INTEGER NOT NULL REFERENCES tests(id), -- Links to test identity
 
     -- Denormalized for query performance (snapshot at time of run)
-    test_name VARCHAR(500) NOT NULL,
+    test_name VARCHAR(512) NOT NULL,
     test_description TEXT,
     test_hash VARCHAR(64) NOT NULL,
     test_file VARCHAR(255),
@@ -137,12 +131,11 @@ CREATE INDEX idx_test_runs_started_at ON test_runs(started_at DESC);
 CREATE INDEX idx_test_runs_suite_id ON test_runs(suite_id);
 
 CREATE INDEX idx_tests_hash ON tests(test_hash);
-CREATE INDEX idx_tests_slug ON tests(test_slug) WHERE test_slug IS NOT NULL;
+CREATE INDEX idx_tests_slug ON tests(test_slug);
 CREATE INDEX idx_tests_current_name ON tests(current_name);
 CREATE INDEX idx_tests_suite_name ON tests(suite_name);
 CREATE INDEX idx_tests_endpoint ON tests(endpoint);
 CREATE INDEX idx_tests_last_seen ON tests(last_seen_at DESC);
-CREATE INDEX idx_tests_previous ON tests(previous_test_id) WHERE previous_test_id IS NOT NULL;
 
 CREATE INDEX idx_test_history_test_id ON test_history(test_id);
 CREATE INDEX idx_test_history_valid_range ON test_history(valid_from, valid_to);
@@ -224,46 +217,6 @@ HAVING
     AND SUM(CASE WHEN tr.status = 'failed' THEN 1 ELSE 0 END) > 0
     AND COUNT(*) >= 5
 ORDER BY failure_rate DESC;
-
--- Test evolution chain (trace test lineage)
--- Recursively follows previous_test_id to build an evolution tree
-CREATE OR REPLACE VIEW test_evolution_chain AS
-WITH RECURSIVE test_lineage AS (
-    -- Base case: current tests
-    SELECT
-        id as current_test_id,
-        test_hash,
-        current_name,
-        previous_test_id,
-        evolution_reason,
-        first_seen_at,
-        last_seen_at,
-        1 as generation,
-        ARRAY[id] as lineage_path,
-        ARRAY[current_name] as name_path
-    FROM tests
-    WHERE last_seen_at >= CURRENT_TIMESTAMP - INTERVAL '90 days' -- Active tests
-
-    UNION ALL
-
-    -- Recursive case: follow the chain backwards
-    SELECT
-        tl.current_test_id,
-        t.test_hash,
-        t.current_name,
-        t.previous_test_id,
-        t.evolution_reason,
-        t.first_seen_at,
-        t.last_seen_at,
-        tl.generation + 1,
-        tl.lineage_path || t.id,
-        tl.name_path || t.current_name
-    FROM test_lineage tl
-    JOIN tests t ON t.id = tl.previous_test_id
-    WHERE tl.generation < 50 -- Prevent infinite loops
-)
-SELECT * FROM test_lineage
-ORDER BY current_test_id, generation;
 
 -- Regression detection (tests that were passing but now failing)
 CREATE OR REPLACE VIEW recent_regressions AS
@@ -365,59 +318,6 @@ HAVING COUNT(*) >= 3 -- Need at least 3 runs for meaningful scores
 ORDER BY overall_health_score ASC;
 
 -- =====================================================
--- HELPER FUNCTIONS
--- =====================================================
-
--- Function to get the complete test history including all evolved versions
-CREATE OR REPLACE FUNCTION get_test_complete_history(p_test_id INTEGER)
-RETURNS TABLE (
-    test_id INTEGER,
-    test_name VARCHAR,
-    test_hash VARCHAR,
-    status VARCHAR,
-    created_at TIMESTAMP,
-    generation INTEGER
-) AS $$
-BEGIN
-    RETURN QUERY
-    WITH RECURSIVE test_chain AS (
-        -- Start with the given test
-        SELECT id, ARRAY[id] as path, 0 as gen
-        FROM tests
-        WHERE id = p_test_id
-
-        UNION
-
-        -- Include previous versions
-        SELECT t.id, tc.path || t.id, tc.gen - 1
-        FROM test_chain tc
-        JOIN tests t ON t.id = (
-            SELECT previous_test_id FROM tests WHERE id = tc.path[array_length(tc.path, 1)]
-        )
-        WHERE NOT (t.id = ANY(tc.path)) -- Prevent cycles
-
-        UNION
-
-        -- Include future versions
-        SELECT t.id, tc.path || t.id, tc.gen + 1
-        FROM test_chain tc
-        JOIN tests t ON t.previous_test_id = tc.path[array_length(tc.path, 1)]
-        WHERE NOT (t.id = ANY(tc.path))
-    )
-    SELECT
-        tr.test_id,
-        tr.test_name,
-        tr.test_hash,
-        tr.status,
-        tr.created_at,
-        tc.gen
-    FROM test_chain tc
-    JOIN test_results tr ON tr.test_id = tc.id
-    ORDER BY tr.created_at DESC;
-END;
-$$ LANGUAGE plpgsql;
-
--- =====================================================
 -- SAMPLE DATA (for testing)
 -- =====================================================
 
@@ -429,18 +329,15 @@ INSERT INTO test_suites (name, description) VALUES
 -- Table comments
 COMMENT ON TABLE test_suites IS 'Test collections or modules';
 COMMENT ON TABLE test_runs IS 'Individual test execution runs';
-COMMENT ON TABLE tests IS 'Unique test definitions tracked by hash or slug - supports evolution and lineage';
+COMMENT ON TABLE tests IS 'Unique test definitions tracked by slug - stable identity across renames';
 COMMENT ON TABLE test_history IS 'Complete audit trail of test name/description changes';
 COMMENT ON TABLE test_results IS 'Immutable log of test execution results';
 
-COMMENT ON COLUMN tests.test_hash IS 'SHA256 hash of (name + description) - fallback identifier when slug not provided';
-COMMENT ON COLUMN tests.test_slug IS 'Optional human-readable stable ID (e.g., saas.users.onboarding.accept_terms) - preferred for tracking';
-COMMENT ON COLUMN tests.previous_test_id IS 'Links to previous version if test evolved (name/description changed)';
-COMMENT ON COLUMN tests.evolution_reason IS 'Why this test evolved: name_changed, description_changed, both_changed';
+COMMENT ON COLUMN tests.test_hash IS 'SHA256 hash of (name + description) - for skip detection';
+COMMENT ON COLUMN tests.test_slug IS 'Human-readable stable ID (e.g., saas.users.onboarding.accept_terms) - auto-generated from name if not provided';
 
 COMMENT ON VIEW latest_test_runs IS 'Most recent test run for each suite and environment';
 COMMENT ON VIEW endpoint_success_rates IS 'Success rate statistics grouped by endpoint using test identity';
-COMMENT ON VIEW flaky_tests IS 'Tests that intermittently fail - tracked across renames';
-COMMENT ON VIEW test_evolution_chain IS 'Complete lineage of test evolution via previous_test_id chain';
+COMMENT ON VIEW flaky_tests IS 'Tests that intermittently fail - tracked via stable slugs';
 COMMENT ON VIEW recent_regressions IS 'Tests that were passing but now failing (last 7 days)';
 COMMENT ON VIEW test_health_scores IS 'Multi-dimensional health metrics for each test';

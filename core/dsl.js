@@ -1,29 +1,106 @@
 // Iudex - Test Definition DSL
 const testSuites = [];
-const currentSuite = {tests: [], hooks: {}};
+const currentSuite = {tests: [], hooks: {}, prefix: null};
 
-export function describe(name, fn) {
+/**
+ * Slugify a string (convert to lowercase, replace spaces/special chars with hyphens)
+ * @param {string} text - Text to slugify
+ * @param {number} maxLength - Maximum length (default 512)
+ * @returns {string} Slugified text
+ */
+function slugify(text, maxLength = 512) {
+    return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-')           // Replace spaces with -
+        .replace(/[^\w\-\.]+/g, '')     // Remove all non-word chars except - and .
+        .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+        .replace(/^-+/, '')             // Trim - from start
+        .replace(/-+$/, '')             // Trim - from end
+        .substring(0, maxLength);       // Enforce max length
+}
+
+/**
+ * Define a test suite
+ * @param {string} name - Suite name
+ * @param {Object|Function} optionsOrFn - Options object or function
+ * @param {Function} fn - Suite function (if options provided)
+ */
+export function describe(name, optionsOrFn, fn) {
+    let options = {};
+    let suiteFn = fn;
+
+    // Handle both describe(name, fn) and describe(name, options, fn)
+    if (typeof optionsOrFn === 'function') {
+        suiteFn = optionsOrFn;
+    } else {
+        options = optionsOrFn || {};
+        suiteFn = fn;
+    }
+
     const suite = {
         name,
         tests: [],
-        hooks: {beforeAll: [], afterAll: [], beforeEach: [], afterEach: []}
+        hooks: {beforeAll: [], afterAll: [], beforeEach: [], afterEach: []},
+        prefix: options.prefix || null  // Optional prefix for test IDs
     };
 
     const previousSuite = Object.assign({}, currentSuite);
     Object.assign(currentSuite, suite);
-    fn();
+    suiteFn();
     testSuites.push({...currentSuite});
     Object.assign(currentSuite, previousSuite);
 }
 
+/**
+ * Define a test
+ * @param {string} name - Test name (max 512 chars)
+ * @param {Function} fn - Test function
+ * @param {Object} options - Test options (timeout, retry, skip, only, tags, id)
+ */
 export function test(name, fn, options = {}) {
+    // Enforce test name length limit
+    if (name.length > 512) {
+        throw new Error(`Test name exceeds 512 characters: "${name.substring(0, 50)}..."`);
+    }
+
+    // Build test slug from suite prefix + test id (or auto-generate from name)
+    let testSlug;
+    if (options.id) {
+        // Explicit ID provided
+        const slugifiedId = slugify(options.id, 512);
+        if (currentSuite.prefix) {
+            testSlug = `${currentSuite.prefix}.${slugifiedId}`;
+        } else {
+            testSlug = slugifiedId;
+        }
+    } else {
+        // Auto-generate slug from test name
+        const slugifiedName = slugify(name, 512);
+        if (currentSuite.prefix) {
+            testSlug = `${currentSuite.prefix}.${slugifiedName}`;
+        } else {
+            testSlug = slugifiedName;
+        }
+    }
+
+    // Enforce final slug length
+    if (testSlug.length > 512) {
+        testSlug = testSlug.substring(0, 512);
+    }
+
     currentSuite.tests.push({
-        name, fn,
+        name,
+        fn,
         timeout: options.timeout || 30000,
         retry: options.retry || 0,
         skip: options.skip || false,
         only: options.only || false,
-        tags: options.tags || []
+        tags: options.tags || [],
+        testId: testSlug,  // Always has a slug (auto-generated or explicit)
+        endpoint: options.endpoint || null,
+        method: options.method || null
     });
 }
 

@@ -107,12 +107,12 @@ export class ResultCollector {
      * Set metadata (allows customization)
      */
     setMetadata(metadata) {
-        this.results.metadata = { ...this.results.metadata, ...metadata };
+        this.results.metadata = {...this.results.metadata, ...metadata};
         return this;
     }
 
     /**
-     * Get all test results as flattened array
+     * Get all test results as a flattened array
      */
     getAllResults() {
         const allResults = [];
@@ -123,6 +123,7 @@ export class ResultCollector {
                     test: test.name,
                     name: test.name,
                     description: test.description || null,
+                    testId: test.testId || null,
                     file: test.file || null,
                     endpoint: test.endpoint || null,
                     method: test.method || test.httpMethod || null,
@@ -254,7 +255,7 @@ export class ResultCollector {
      */
     hasAllPassed() {
         return this.results.summary.failed === 0 &&
-               this.results.summary.total > 0;
+            this.results.summary.total > 0;
     }
 
     /**
@@ -395,4 +396,4 @@ export class ResultCollector {
     }
 }
 
-export default { ResultCollector };
+export default {ResultCollector};

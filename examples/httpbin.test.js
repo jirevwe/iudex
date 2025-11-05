@@ -1,23 +1,23 @@
-import { describe, test, expect, beforeEach, afterEach } from '../core/dsl.js';
+import {describe, test, expect, beforeEach, afterEach} from '../core/dsl.js';
 
-describe('HTTPBin API Examples', () => {
+describe('HTTPBin API Examples', {prefix: 'httpbin.api'}, () => {
     let baseUrl;
 
     beforeEach(async (context) => {
         baseUrl = 'https://seal-app-7wdhb.ondigitalocean.app';
-        context.testData = { timestamp: Date.now() };
+        context.testData = {timestamp: Date.now()};
     });
 
-    test('should fetch basic GET response', async (context) => {
+    test('should retrieve GET endpoint with parameters', async (context) => {
         const response = await context.request.get(`${baseUrl}/get`, {
-            params: { foo: 'bar', test: 'example' }
+            params: {foo: 'bar', test: 'example'}
         });
 
         expect(response.status).toBe(200);
         expect(response.data.args.foo[0]).toBe('bar');
         expect(response.data.args.test[0]).toBe('example');
         expect(response.data.url).toContain('/get');
-    });
+    }, {id: 'get_basic'});
 
     test('should post JSON data', async (context) => {
         const payload = {
@@ -32,7 +32,7 @@ describe('HTTPBin API Examples', () => {
         expect(response.data.json.name).toBe('Iudex');
         expect(response.data.json.type).toBe('testing-framework');
         expect(response.data.json.timestamp).toBe(context.testData.timestamp);
-    });
+    }, {id: 'post_json'});
 
     test('should handle custom headers', async (context) => {
         const response = await context.request.get(`${baseUrl}/headers`, {
@@ -63,7 +63,7 @@ describe('HTTPBin API Examples', () => {
 
     test('should handle DELETE requests', async (context) => {
         const response = await context.request.delete(`${baseUrl}/delete`, {
-            data: { id: 456, reason: 'test cleanup' }
+            data: {id: 456, reason: 'test cleanup'}
         });
 
         expect(response.status).toBe(200);
@@ -114,7 +114,7 @@ describe('HTTPBin API Examples', () => {
             sort: 'asc'
         };
 
-        const response = await context.request.get(`${baseUrl}/get`, { params });
+        const response = await context.request.get(`${baseUrl}/get`, {params});
 
         expect(response.status).toBe(200);
         expect(response.data.args.search[0]).toBe('api testing');
@@ -124,7 +124,9 @@ describe('HTTPBin API Examples', () => {
     });
 });
 
-describe('HTTPBin Response Format Tests', () => {
+describe('HTTPBin Response Format Tests', {
+    prefix: 'httpbin.formats'
+}, () => {
     const baseUrl = 'https://seal-app-7wdhb.ondigitalocean.app';
 
     test('should get HTML response', async (context) => {
@@ -163,7 +165,9 @@ describe('HTTPBin Response Format Tests', () => {
     });
 });
 
-describe('HTTPBin Error Handling', () => {
+describe('HTTPBin Error Handling', {
+    prefix: 'httpbin.errors'
+}, () => {
     const baseUrl = 'https://seal-app-7wdhb.ondigitalocean.app';
 
     test('should handle 404 errors', async (context) => {
@@ -184,7 +188,7 @@ describe('HTTPBin Error Handling', () => {
 
     test('should handle redirect', async (context) => {
         const response = await context.request.get(`${baseUrl}/redirect-to`, {
-            params: { url: `${baseUrl}/get`, status_code: 302 },
+            params: {url: `${baseUrl}/get`, status_code: 302},
             maxRedirects: 5
         });
 
