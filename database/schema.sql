@@ -117,7 +117,7 @@ CREATE TABLE test_results (
     response_body TEXT,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
 
     -- Prevent accidental updates
     CONSTRAINT immutable_results CHECK (updated_at IS NULL)

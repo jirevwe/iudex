@@ -8,6 +8,7 @@ import { resolve, join } from 'path';
 import { TestRunner } from '../core/runner.js';
 import { ResultCollector } from '../core/collector.js';
 import { ConsoleReporter } from '../reporters/console.js';
+import { PostgresReporter } from '../reporters/postgres.js';
 
 const program = new Command();
 
@@ -54,11 +55,9 @@ program
             // Initialize components
             const collector = new ResultCollector();
             const runner = new TestRunner(config);
-            const reporter = new ConsoleReporter({
-                verbose: options.verbose,
-                colors: options.colors !== false,
-                showPassed: options.verbose
-            });
+
+            // Initialize reporters from config
+            const reporters = await loadReporters(config, options);
 
             // Run tests
             collector.start();
@@ -66,8 +65,15 @@ program
             collector.addResults(results);
             collector.end();
 
-            // Report results
-            reporter.report(collector.getResults());
+            // Report results to all reporters
+            for (const reporter of reporters) {
+                // ConsoleReporter expects results object, PostgresReporter expects collector
+                if (reporter instanceof ConsoleReporter) {
+                    reporter.report(collector.getResults());
+                } else if (reporter instanceof PostgresReporter) {
+                    await reporter.report(collector);
+                }
+            }
 
             // Exit with the appropriate error code
             process.exit(collector.hasFailures() ? 1 : 0);
@@ -152,6 +158,76 @@ async function loadConfig(configPath) {
             http: {}
         };
     }
+}
+
+/**
+ * Load and initialize reporters from config
+ */
+async function loadReporters(config, options) {
+    const reporters = [];
+    const reporterConfigs = config.reporters || ['console'];
+
+    for (const reporterConfig of reporterConfigs) {
+        let reporterName, reporterOptions;
+
+        // Handle both string and array formats
+        if (typeof reporterConfig === 'string') {
+            reporterName = reporterConfig;
+            reporterOptions = {};
+        } else if (Array.isArray(reporterConfig)) {
+            [reporterName, reporterOptions] = reporterConfig;
+        } else {
+            continue;
+        }
+
+        try {
+            let reporter;
+
+            switch (reporterName) {
+                case 'console':
+                    reporter = new ConsoleReporter({
+                        verbose: options.verbose,
+                        colors: options.colors !== false,
+                        showPassed: options.verbose,
+                        ...reporterOptions
+                    });
+                    break;
+
+                case 'postgres':
+                case 'postgresql':
+                    if (config.database && config.database.enabled !== false) {
+                        reporter = new PostgresReporter(config.database);
+                    }
+                    break;
+
+                case 'github-pages':
+                case 'backend':
+                    // Placeholder for Week 3 reporters
+                    console.log(`Reporter '${reporterName}' not yet implemented`);
+                    break;
+
+                default:
+                    console.warn(`Unknown reporter: ${reporterName}`);
+            }
+
+            if (reporter) {
+                reporters.push(reporter);
+            }
+        } catch (error) {
+            console.warn(`Failed to load reporter '${reporterName}':`, error.message);
+        }
+    }
+
+    // Always include the console reporter if none were loaded
+    if (reporters.length === 0) {
+        reporters.push(new ConsoleReporter({
+            verbose: options.verbose,
+            colors: options.colors !== false,
+            showPassed: options.verbose
+        }));
+    }
+
+    return reporters;
 }
 
 /**
