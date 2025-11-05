@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import {
     describe as dslDescribe,
     test as dslTest,
@@ -7,8 +6,7 @@ import {
     afterAll as dslAfterAll,
     beforeEach as dslBeforeEach,
     afterEach as dslAfterEach,
-    getTestSuites,
-    Expect
+    getTestSuites
 } from './dsl.js';
 
 describe('DSL - Test Definition', () => {
