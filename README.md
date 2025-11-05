@@ -1,16 +1,26 @@
 # Iudex Framework 🛡️
 
-> JavaScript-first API testing framework with built-in governance and security
+> JavaScript-first API testing framework with built-in governance, security, and persistence
 
 ## Why Iudex?
 
 - ✅ **JavaScript Native** - Your team already knows it
-- ✅ **Compatible** - Works with postman-request and modern tools
+- ✅ **Data Persistence** - PostgreSQL-backed test history and analytics
+- ✅ **Smart Test Identity** - Stable slugs maintain history across renames
 - ✅ **Governance Built-in** - Enforces API best practices automatically
 - ✅ **Security First** - Detects vulnerabilities as you test
-- ✅ **GitHub Pages** - Beautiful static reports
-- ✅ **CI/CD Ready** - Integrates seamlessly
+- ✅ **Rich Analytics** - Flaky test detection, health scores, regression tracking
+- ✅ **CI/CD Ready** - Integrates seamlessly with GitHub Actions
 - ✅ **No Vendor Lock-in** - Open source, your tests, your control
+
+## Current Status
+
+**Week 1 + Week 2 (Days 6-8) Complete ✅**
+
+- 139 unit tests passing
+- 17 integration tests (HTTPBin examples)
+- PostgreSQL persistence layer fully functional
+- Slug-based test identity with history tracking
 
 ## Quick Start
 
@@ -26,14 +36,14 @@ npm install iudex --save-dev
 // tests/users.test.js
 import { describe, test, expect } from 'iudex';
 
-describe('Users API', () => {
+describe('Users API', { prefix: 'users' }, () => {
   test('should get all users', async ({ request }) => {
     const response = await request.get('/api/users');
-    
+
     expect(response).toHaveStatus(200);
     expect(response.body).toBeArray();
     expect(response).toRespondWithin(500);
-  });
+  }, { id: 'list_all' }); // Slug: users.list_all
 
   test('should create user', async ({ request }) => {
     const response = await request.post('/api/users', {
@@ -45,9 +55,11 @@ describe('Users API', () => {
 
     expect(response).toHaveStatus(201);
     expect(response.body).toHaveProperty('id');
-  });
+  }, { id: 'create' }); // Slug: users.create
 });
 ```
+
+**Note:** Test IDs are optional. If not provided, Iudex auto-generates slugs from test names.
 
 ### Run Tests
 
@@ -84,6 +96,41 @@ Detects vulnerabilities:
 - 🟡 **Medium:** PII exposure, missing headers
 - 🟢 **Low:** IP addresses, rate limiting
 
+### 💾 Data Persistence & Analytics
+
+PostgreSQL-backed test history:
+- **Slug-based Identity** - Tests maintain history across renames
+- **Complete Audit Trail** - Track every test name/description change
+- **Flaky Test Detection** - Identify intermittently failing tests
+- **Regression Tracking** - Catch tests that were passing but now failing
+- **Health Scores** - Multi-dimensional test health metrics
+- **Success Rates** - Per-endpoint and overall statistics
+- **Daily Trends** - Historical data for trend analysis
+
+```javascript
+// Auto-generated slugs (from test names)
+test('should handle PUT requests', async (context) => {
+  // Slug: httpbin.api.should-handle-put-requests
+});
+
+// Explicit slugs (stable across renames)
+test('Verify user creation endpoint', async (context) => {
+  // ...
+}, { id: 'create_user' }); // Slug: users.create_user
+```
+
+**Analytics Views:**
+```sql
+-- Get flaky tests
+SELECT * FROM flaky_tests WHERE failure_rate > 10;
+
+-- Get recent regressions
+SELECT * FROM recent_regressions WHERE latest_run > NOW() - INTERVAL '7 days';
+
+-- Get test health scores
+SELECT * FROM test_health_scores ORDER BY overall_health_score ASC LIMIT 10;
+```
+
 ### 📊 Beautiful Reports
 
 - Console output with colors
@@ -98,12 +145,24 @@ Create \`iudex.config.js\`:
 ```javascript
 export default {
   testMatch: ['tests/**/*.test.js'],
-  
+
   http: {
     baseURL: process.env.API_BASE_URL,
     headers: {
       'Authorization': `Bearer ${process.env.API_KEY}`
     }
+  },
+
+  // Database persistence (optional)
+  database: {
+    enabled: process.env.DB_ENABLED !== 'false',
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT) || 5432,
+    database: process.env.DB_NAME || 'iudex',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD,
+    ssl: process.env.DB_SSL === 'true' || false,
+    poolSize: parseInt(process.env.DB_POOL_SIZE) || 10
   },
 
   governance: {
@@ -124,6 +183,7 @@ export default {
 
   reporters: [
     'console',
+    'postgres',  // Persist to PostgreSQL
     ['github-pages', { output: 'docs/' }]
   ]
 };

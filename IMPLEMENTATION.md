@@ -1,5 +1,31 @@
 # Iudex - Implementation Guide
 
+## 📊 Current Status
+
+**Progress:** Week 1 + Week 2 (Days 6-8) Complete ✅
+
+### ✅ Completed (Weeks 1-2)
+- **Core Framework** - Test runner, DSL, HTTP client, console reporter, CLI
+- **Data Persistence** - PostgreSQL schema, connection pooling, test repository
+- **Test Identity** - Slug-based tracking (auto-generated or explicit)
+- **History Tracking** - Complete audit trail of test changes
+- **Analytics Views** - Latest runs, flaky tests, regressions, health scores
+- **17 Integration Tests** - HTTPBin examples demonstrating framework
+
+### 🎯 Next Priority (Week 2: Days 9-13)
+- **Governance Engine** - API standards enforcement
+- **Security Scanner** - Vulnerability detection
+- **Advanced Reporting** - Governance/security insights
+
+### 📈 Stats
+- **Unit Tests:** 139 passing
+- **Integration Tests:** 17 passing (HTTPBin examples)
+- **Database Tables:** 5 (test_suites, test_runs, tests, test_history, test_results)
+- **Analytics Views:** 6 (latest runs, endpoint success rates, flaky tests, regressions, health scores, daily stats)
+- **Code Coverage:** Core framework complete
+
+---
+
 ## 📋 Complete Roadmap
 
 ### Week 1: Core Framework (Days 1-5)
@@ -441,13 +467,68 @@ export default {
     enabled: true,
     host: 'localhost',
     port: 5432,
-    database: 'iudex_test_results',
-    user: 'iudex_user',
+    database: 'iudex',
+    user: 'postgres',
     password: process.env.DB_PASSWORD,
-    ssl: false
+    ssl: false,
+    poolSize: 10
   },
   reporters: ['console', 'postgres']
 };
+```
+
+#### Slug-Based Test Identity System
+
+**Key Design Decision:** Tests are identified by **slugs** (auto-generated or explicit), not hashes.
+
+**How It Works:**
+
+1. **Auto-Generated Slugs** - DSL automatically creates slugs from test names:
+   ```javascript
+   // Test without explicit ID
+   test('should handle PUT requests', async (context) => {
+     // Slug: httpbin.api.should-handle-put-requests
+   });
+   ```
+
+2. **Explicit Slugs** - Developers can provide stable IDs:
+   ```javascript
+   describe('HTTPBin API', { prefix: 'httpbin.api' }, () => {
+     test('should fetch data', async (context) => {
+       // ...
+     }, { id: 'get_basic' }); // Slug: httpbin.api.get_basic
+   });
+   ```
+
+3. **Stable Identity Across Renames:**
+   - Slug remains constant even when test name changes
+   - Database tracks name/description history in `test_history` table
+   - Test hash updated for skip detection (not identity)
+
+**Benefits:**
+- ✅ Tests maintain identity across renames
+- ✅ Human-readable identifiers (e.g., `saas.users.onboarding.accept_terms`)
+- ✅ Hierarchical namespacing via prefixes
+- ✅ No complex evolution tracking needed
+- ✅ Hash still available for skip detection
+
+**Schema Highlights:**
+```sql
+CREATE TABLE tests (
+    test_slug VARCHAR(512) NOT NULL UNIQUE,  -- Primary identifier
+    test_hash VARCHAR(64) NOT NULL,          -- For skip detection
+    current_name VARCHAR(512) NOT NULL,      -- Latest name
+    -- ...
+);
+
+CREATE TABLE test_history (
+    test_id INTEGER REFERENCES tests(id),
+    name VARCHAR(512) NOT NULL,
+    test_hash VARCHAR(64) NOT NULL,
+    valid_from TIMESTAMP NOT NULL,
+    valid_to TIMESTAMP,  -- NULL = current version
+    change_type VARCHAR(50)  -- 'created', 'updated'
+);
 ```
 
 ### Week 2: Governance & Security (Days 9-13)
@@ -541,13 +622,13 @@ Follow the week-by-week plan above.
 - [x] reporters/console.js
 - [x] cli/index.js
 
-### Data Persistence (Week 2: Days 6-8) 🎯 PRIORITY
-- [ ] database/schema.sql (see sample_schema.sql)
-- [ ] database/client.js - PostgreSQL connection pool
-- [ ] database/repository.js - Data access layer
-- [ ] database/migrations.js - Schema migration support
-- [ ] reporters/postgres.js - Persist results to database
-- [ ] Update iudex.config.js with database settings
+### Data Persistence (Week 2: Days 6-8) ✅ COMPLETED
+- [x] database/schema.sql - Complete schema with slug-based identity
+- [x] database/client.js - PostgreSQL connection pool with pg
+- [x] database/repository.js - Data access layer with slug tracking
+- [x] reporters/postgres.js - Persist results to database with analytics
+- [x] Update iudex.config.js with database settings
+- [x] Test slug enforcement (auto-generated from names)
 
 ### Governance (Week 2: Days 9-13)
 - [ ] governance/engine.js
@@ -583,11 +664,14 @@ Follow the week-by-week plan above.
 - [x] HTTP client functional
 - [x] 139 unit tests passing
 
-### Week 2 (Priority: Days 6-8)
-- [ ] Test results persist to PostgreSQL
-- [ ] Historical data queryable
-- [ ] Database views working (latest runs, success rates, flaky tests)
-- [ ] Multiple reporters can run simultaneously (console + postgres)
+### Week 2 (Days 6-8) ✅ COMPLETED
+- [x] Test results persist to PostgreSQL
+- [x] Historical data queryable via views
+- [x] Database views working (latest runs, success rates, flaky tests, health scores, regressions)
+- [x] Multiple reporters run simultaneously (console + postgres)
+- [x] Test identity via slugs (auto-generated or explicit)
+- [x] Test history tracking (audit trail of changes)
+- [x] Test hash for skip detection
 
 ### Week 2 (Days 9-13)
 - [ ] Governance violations detected
