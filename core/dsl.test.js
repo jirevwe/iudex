@@ -141,6 +141,266 @@ describe('DSL - Test Definition', () => {
     });
 });
 
+describe('DSL - Slug-based Test Identity', () => {
+    beforeEach(() => {
+        const suites = getTestSuites();
+        suites.length = 0;
+    });
+
+    describe('Auto-slug generation', () => {
+        test('should auto-generate slug from test name', () => {
+            dslDescribe('Suite', () => {
+                dslTest('should fetch user data', () => {});
+            });
+
+            const suites = getTestSuites();
+            const testDef = suites[0].tests[0];
+            expect(testDef.testId).toBe('should-fetch-user-data');
+        });
+
+        test('should convert spaces to dashes', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test with multiple spaces', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('test-with-multiple-spaces');
+        });
+
+        test('should remove special characters', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test@with#special$chars!', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('testwithspecialchars');
+        });
+
+        test('should preserve dots in slugs', () => {
+            dslDescribe('Suite', () => {
+                dslTest('api.users.get', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('api.users.get');
+        });
+
+        test('should convert to lowercase', () => {
+            dslDescribe('Suite', () => {
+                dslTest('Test With UPPERCASE Letters', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('test-with-uppercase-letters');
+        });
+
+        test('should handle multiple consecutive dashes', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test---with---dashes', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('test-with-dashes');
+        });
+
+        test('should trim leading and trailing dashes', () => {
+            dslDescribe('Suite', () => {
+                dslTest('---test---', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('test');
+        });
+    });
+
+    describe('Explicit test IDs', () => {
+        test('should use explicit id when provided', () => {
+            dslDescribe('Suite', () => {
+                dslTest('Should fetch user data', () => {}, { id: 'get_user' });
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('get_user');
+        });
+
+        test('should slugify explicit id', () => {
+            dslDescribe('Suite', () => {
+                dslTest('Test', () => {}, { id: 'Custom ID with Spaces' });
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('custom-id-with-spaces');
+        });
+    });
+
+    describe('Suite prefix support', () => {
+        test('should prepend prefix to auto-generated slug', () => {
+            dslDescribe('API Tests', { prefix: 'api.users' }, () => {
+                dslTest('should create user', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('api.users.should-create-user');
+        });
+
+        test('should prepend prefix to explicit id', () => {
+            dslDescribe('API Tests', { prefix: 'api.users' }, () => {
+                dslTest('Test', () => {}, { id: 'create' });
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('api.users.create');
+        });
+
+        test('should work without prefix', () => {
+            dslDescribe('Suite without prefix', () => {
+                dslTest('test', () => {}, { id: 'my_test' });
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('my_test');
+        });
+
+        test('should handle multi-level prefixes', () => {
+            dslDescribe('Suite', { prefix: 'saas.api.users.onboarding' }, () => {
+                dslTest('test', () => {}, { id: 'step1' });
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('saas.api.users.onboarding.step1');
+        });
+    });
+
+    describe('Character limits', () => {
+        test('should enforce 512 character limit on test names', () => {
+            const longName = 'a'.repeat(513);
+
+            expect(() => {
+                dslDescribe('Suite', () => {
+                    dslTest(longName, () => {});
+                });
+            }).toThrow('Test name exceeds 512 characters');
+        });
+
+        test('should allow test names up to 512 characters', () => {
+            const maxName = 'a'.repeat(512);
+
+            expect(() => {
+                dslDescribe('Suite', () => {
+                    dslTest(maxName, () => {});
+                });
+            }).not.toThrow();
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].name.length).toBe(512);
+        });
+
+        test('should truncate slug to 512 characters', () => {
+            const longName = 'test-'.repeat(150); // Creates a slug > 512 chars
+
+            dslDescribe('Suite', () => {
+                dslTest(longName.substring(0, 512), () => {});
+            });
+
+            const suites = getTestSuites();
+            const slug = suites[0].tests[0].testId;
+            expect(slug.length).toBeLessThanOrEqual(512);
+        });
+
+        test('should truncate slug with prefix to 512 characters', () => {
+            const longPrefix = 'a'.repeat(300);
+            const longId = 'b'.repeat(300);
+
+            dslDescribe('Suite', { prefix: longPrefix }, () => {
+                dslTest('test', () => {}, { id: longId });
+            });
+
+            const suites = getTestSuites();
+            const slug = suites[0].tests[0].testId;
+            expect(slug.length).toBeLessThanOrEqual(512);
+        });
+    });
+
+    describe('Test ID in test object', () => {
+        test('should include testId in test object', () => {
+            dslDescribe('Suite', () => {
+                dslTest('my test', () => {});
+            });
+
+            const suites = getTestSuites();
+            const testDef = suites[0].tests[0];
+            expect(testDef).toHaveProperty('testId');
+            expect(testDef.testId).toBe('my-test');
+        });
+
+        test('should include endpoint and method when provided', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test', () => {}, {
+                    endpoint: '/api/users',
+                    method: 'GET'
+                });
+            });
+
+            const suites = getTestSuites();
+            const testDef = suites[0].tests[0];
+            expect(testDef.endpoint).toBe('/api/users');
+            expect(testDef.method).toBe('GET');
+        });
+
+        test('should have null endpoint and method when not provided', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test', () => {});
+            });
+
+            const suites = getTestSuites();
+            const testDef = suites[0].tests[0];
+            expect(testDef.endpoint).toBe(null);
+            expect(testDef.method).toBe(null);
+        });
+    });
+
+    describe('Edge cases', () => {
+        test('should handle empty string after slugification', () => {
+            dslDescribe('Suite', () => {
+                dslTest('!!!', () => {});
+            });
+
+            const suites = getTestSuites();
+            // Should result in empty or minimal slug
+            expect(suites[0].tests[0].testId).toBeDefined();
+        });
+
+        test('should handle unicode characters', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test with émojis 🚀', () => {});
+            });
+
+            const suites = getTestSuites();
+            const slug = suites[0].tests[0].testId;
+            expect(slug).toBeDefined();
+            expect(slug.length).toBeGreaterThan(0);
+        });
+
+        test('should handle numbers in test names', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test 123 with numbers 456', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('test-123-with-numbers-456');
+        });
+
+        test('should handle underscores', () => {
+            dslDescribe('Suite', () => {
+                dslTest('test_with_underscores', () => {});
+            });
+
+            const suites = getTestSuites();
+            expect(suites[0].tests[0].testId).toBe('test_with_underscores');
+        });
+    });
+});
+
 describe('DSL - Expect Matchers', () => {
     describe('toBe', () => {
         test('should pass when values are equal', () => {

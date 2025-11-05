@@ -27,6 +27,43 @@ describe('ResultCollector', () => {
             expect(results.metadata.framework).toBe('Iudex');
             expect(results.metadata.version).toBe('1.0.0');
         });
+
+        test('should get metadata via getMetadata()', () => {
+            const metadata = collector.getMetadata();
+
+            expect(metadata.framework).toBe('Iudex');
+            expect(metadata.version).toBe('1.0.0');
+            expect(metadata.environment).toBeDefined();
+        });
+
+        test('should set custom metadata', () => {
+            const customMetadata = {
+                projectName: 'My API',
+                environment: 'staging',
+                buildNumber: '123'
+            };
+
+            const result = collector.setMetadata(customMetadata);
+
+            expect(result).toBe(collector); // Returns collector for chaining
+
+            const metadata = collector.getMetadata();
+            expect(metadata.framework).toBe('Iudex'); // Original fields preserved
+            expect(metadata.version).toBe('1.0.0');
+            expect(metadata.projectName).toBe('My API');
+            expect(metadata.environment).toBe('staging');
+            expect(metadata.buildNumber).toBe('123');
+        });
+
+        test('should merge metadata without overwriting defaults', () => {
+            collector.setMetadata({ customField: 'value1' });
+            collector.setMetadata({ anotherField: 'value2' });
+
+            const metadata = collector.getMetadata();
+            expect(metadata.framework).toBe('Iudex');
+            expect(metadata.customField).toBe('value1');
+            expect(metadata.anotherField).toBe('value2');
+        });
     });
 
     describe('Adding Results', () => {
@@ -93,6 +130,248 @@ describe('ResultCollector', () => {
         test('should return collector instance for chaining', () => {
             expect(collector.start()).toBe(collector);
             expect(collector.end()).toBe(collector);
+        });
+    });
+
+    describe('getAllResults() - Flattened Test Results', () => {
+        test('should return empty array when no tests', () => {
+            const results = collector.getAllResults();
+            expect(results).toEqual([]);
+        });
+
+        test('should flatten all tests from multiple suites', () => {
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'Suite 1',
+                        tests: [
+                            { name: 'test 1', status: 'passed', duration: 100 },
+                            { name: 'test 2', status: 'failed', duration: 50 }
+                        ]
+                    },
+                    {
+                        name: 'Suite 2',
+                        tests: [
+                            { name: 'test 3', status: 'passed', duration: 75 }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const results = collector.getAllResults();
+
+            expect(results).toHaveLength(3);
+            expect(results[0].suite).toBe('Suite 1');
+            expect(results[0].name).toBe('test 1');
+            expect(results[1].suite).toBe('Suite 1');
+            expect(results[1].name).toBe('test 2');
+            expect(results[2].suite).toBe('Suite 2');
+            expect(results[2].name).toBe('test 3');
+        });
+
+        test('should include all test fields including testId and endpoint', () => {
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'API Suite',
+                        tests: [
+                            {
+                                name: 'GET user endpoint',
+                                status: 'passed',
+                                duration: 150,
+                                testId: 'api.users.get',
+                                endpoint: '/api/users/123',
+                                method: 'GET',
+                                responseTime: 145,
+                                statusCode: 200,
+                                tags: ['smoke', 'api']
+                            }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const results = collector.getAllResults();
+
+            expect(results).toHaveLength(1);
+            const test = results[0];
+            expect(test.suite).toBe('API Suite');
+            expect(test.test).toBe('GET user endpoint');
+            expect(test.name).toBe('GET user endpoint');
+            expect(test.testId).toBe('api.users.get');
+            expect(test.endpoint).toBe('/api/users/123');
+            expect(test.method).toBe('GET');
+            expect(test.responseTime).toBe(145);
+            expect(test.statusCode).toBe(200);
+            expect(test.duration).toBe(150);
+            expect(test.status).toBe('passed');
+            expect(test.tags).toEqual(['smoke', 'api']);
+        });
+
+        test('should handle httpMethod as fallback for method', () => {
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'Suite',
+                        tests: [
+                            {
+                                name: 'test',
+                                status: 'passed',
+                                httpMethod: 'POST'
+                            }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const results = collector.getAllResults();
+            expect(results[0].method).toBe('POST');
+        });
+
+        test('should include error details with message, type, and stack', () => {
+            const error = new Error('Test assertion failed');
+            error.name = 'AssertionError';
+
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'Suite',
+                        tests: [
+                            {
+                                name: 'failing test',
+                                status: 'failed',
+                                error: error
+                            }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const results = collector.getAllResults();
+            const test = results[0];
+
+            expect(test.error).toBe('Test assertion failed');
+            expect(test.errorType).toBe('AssertionError');
+            expect(test.stack).toContain('Test assertion failed');
+        });
+
+        test('should handle error as string', () => {
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'Suite',
+                        tests: [
+                            {
+                                name: 'test',
+                                status: 'failed',
+                                error: 'Simple error message'
+                            }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const results = collector.getAllResults();
+            expect(results[0].error).toBe('Simple error message');
+            expect(results[0].errorType).toBeNull();
+            expect(results[0].stack).toBeNull();
+        });
+
+        test('should include description, file, and other optional fields', () => {
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'Suite',
+                        tests: [
+                            {
+                                name: 'comprehensive test',
+                                description: 'Tests user authentication',
+                                file: '/path/to/test.js',
+                                status: 'passed',
+                                duration: 100,
+                                assertionsPassed: 5,
+                                assertionsFailed: 2,
+                                requestBody: { username: 'test' },
+                                responseBody: { success: true }
+                            }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const results = collector.getAllResults();
+            const test = results[0];
+
+            expect(test.description).toBe('Tests user authentication');
+            expect(test.file).toBe('/path/to/test.js');
+            expect(test.assertionsPassed).toBe(5);
+            expect(test.assertionsFailed).toBe(2);
+            expect(test.requestBody).toEqual({ username: 'test' });
+            expect(test.responseBody).toEqual({ success: true });
+        });
+
+        test('should return null for missing optional fields', () => {
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'Suite',
+                        tests: [
+                            {
+                                name: 'minimal test',
+                                status: 'passed'
+                            }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const results = collector.getAllResults();
+            const test = results[0];
+
+            expect(test.description).toBeNull();
+            expect(test.testId).toBeNull();
+            expect(test.file).toBeNull();
+            expect(test.endpoint).toBeNull();
+            expect(test.method).toBeNull();
+            expect(test.responseTime).toBeNull();
+            expect(test.statusCode).toBeNull();
+            expect(test.error).toBeNull();
+            expect(test.errorType).toBeNull();
+            expect(test.stack).toBeNull();
+            expect(test.assertionsPassed).toBeNull();
+            expect(test.assertionsFailed).toBeNull();
+            expect(test.requestBody).toBeNull();
+            expect(test.responseBody).toBeNull();
+            expect(test.duration).toBe(0); // Default to 0 instead of null
+            expect(test.tags).toEqual([]); // Default to empty array
+        });
+
+        test('should access via testResults getter (backwards compatibility)', () => {
+            collector.addResults({
+                suites: [
+                    {
+                        name: 'Suite',
+                        tests: [
+                            { name: 'test 1', status: 'passed' },
+                            { name: 'test 2', status: 'passed' }
+                        ]
+                    }
+                ],
+                summary: {}
+            });
+
+            const resultsViaGetter = collector.testResults;
+            const resultsViaMethod = collector.getAllResults();
+
+            expect(resultsViaGetter).toEqual(resultsViaMethod);
+            expect(resultsViaGetter).toHaveLength(2);
         });
     });
 
