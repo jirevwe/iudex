@@ -2,10 +2,11 @@
 -- PostgreSQL with Test Evolution Tracking
 --
 -- Key Concepts:
--- 1. Tests are identified by hash of (name + description)
+-- 1. Tests are identified by slug (preferred) or hash fallback
 -- 2. Test records are immutable - a new row for each run
 -- 3. Tests can evolve (name/description changes) - linked via previous_test_id
 -- 4. Complete test lineage for regression tracking
+-- 5. Human-readable slugs (e.g., 'saas.users.onboarding.accept_terms') provide stable identity
 
 -- Drop tables if they exist (for clean setup)
 DROP TABLE IF EXISTS test_results CASCADE;
@@ -47,11 +48,12 @@ CREATE TABLE test_runs (
     )
 );
 
--- Tests (Unique test definitions tracked by hash)
+-- Tests (Unique test definitions tracked by hash or slug)
 -- This table tracks the IDENTITY of tests across renames and evolution
 CREATE TABLE tests (
     id SERIAL PRIMARY KEY,
-    test_hash VARCHAR(64) NOT NULL UNIQUE, -- SHA256(name + description)
+    test_hash VARCHAR(64) NOT NULL, -- SHA256(name + description)
+    test_slug VARCHAR(255), -- Optional human-readable ID (e.g., 'saas.users.onboarding.accept_terms')
     current_name VARCHAR NOT NULL, -- Latest name
     current_description TEXT, -- Latest description
     suite_name VARCHAR(255), -- Which suite this test belongs to
@@ -70,7 +72,11 @@ CREATE TABLE tests (
     last_status VARCHAR(20), -- Latest status: 'passed', 'failed', 'skipped'
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Unique constraints: either by hash OR by slug
+    UNIQUE(test_hash),
+    UNIQUE(test_slug)
 );
 
 -- Test History (Tracks all name/description changes)
@@ -131,6 +137,7 @@ CREATE INDEX idx_test_runs_started_at ON test_runs(started_at DESC);
 CREATE INDEX idx_test_runs_suite_id ON test_runs(suite_id);
 
 CREATE INDEX idx_tests_hash ON tests(test_hash);
+CREATE INDEX idx_tests_slug ON tests(test_slug) WHERE test_slug IS NOT NULL;
 CREATE INDEX idx_tests_current_name ON tests(current_name);
 CREATE INDEX idx_tests_suite_name ON tests(suite_name);
 CREATE INDEX idx_tests_endpoint ON tests(endpoint);
@@ -422,11 +429,12 @@ INSERT INTO test_suites (name, description) VALUES
 -- Table comments
 COMMENT ON TABLE test_suites IS 'Test collections or modules';
 COMMENT ON TABLE test_runs IS 'Individual test execution runs';
-COMMENT ON TABLE tests IS 'Unique test definitions tracked by hash - supports evolution and lineage';
+COMMENT ON TABLE tests IS 'Unique test definitions tracked by hash or slug - supports evolution and lineage';
 COMMENT ON TABLE test_history IS 'Complete audit trail of test name/description changes';
 COMMENT ON TABLE test_results IS 'Immutable log of test execution results';
 
-COMMENT ON COLUMN tests.test_hash IS 'SHA256 hash of (name + description) - unique identifier across renames';
+COMMENT ON COLUMN tests.test_hash IS 'SHA256 hash of (name + description) - fallback identifier when slug not provided';
+COMMENT ON COLUMN tests.test_slug IS 'Optional human-readable stable ID (e.g., saas.users.onboarding.accept_terms) - preferred for tracking';
 COMMENT ON COLUMN tests.previous_test_id IS 'Links to previous version if test evolved (name/description changed)';
 COMMENT ON COLUMN tests.evolution_reason IS 'Why this test evolved: name_changed, description_changed, both_changed';
 

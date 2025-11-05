@@ -8,7 +8,7 @@ describe('HTTPBin API Examples', () => {
         context.testData = { timestamp: Date.now() };
     });
 
-    test('should get basic response', async (context) => {
+    test('should fetch basic GET response', async (context) => {
         const response = await context.request.get(`${baseUrl}/get`, {
             params: { foo: 'bar', test: 'example' }
         });
