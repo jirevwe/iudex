@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#MISE description="Initialize PostgreSQL database and schema"
+
+set -e
+
+echo "🗄️  Setting up PostgreSQL database..."
+echo ""
+
+# Configuration
+DB_NAME="${DB_NAME:-iudex}"
+DB_USER="${DB_USER:-iudex_user}"
+DB_PASSWORD="${DB_PASSWORD:-iudex_pass}"
+
+echo "Database: $DB_NAME"
+echo "User: $DB_USER"
+echo ""
+
+# Create user if it doesn't exist
+echo "Creating database user..."
+psql postgres -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>/dev/null || echo "  → User already exists"
+
+echo ""
+echo "Creating database..."
+psql postgres -c "CREATE DATABASE $DB_NAME;" 2>/dev/null || echo "  → Database already exists"
+
+echo ""
+echo "Granting permissions to $DB_USER..."
+psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
+
+echo ""
+echo "Granting schema permissions..."
+psql -d $DB_NAME -c "GRANT ALL ON SCHEMA public TO $DB_USER;"
+psql -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;"
+psql -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;"
+
+echo ""
+echo "Loading schema..."
+PGPASSWORD=$DB_PASSWORD psql -U $DB_USER -d $DB_NAME -f database/schema.sql
+
+echo ""
+echo "✅ Database setup complete!"
+echo ""
+echo "Connection details:"
+echo "  Database: $DB_NAME"
+echo "  User: $DB_USER"
+echo "  Host: ${DB_HOST:-localhost}"
+echo "  Port: ${DB_PORT:-5432}"
+echo ""
+echo "To connect: psql -U $DB_USER -d $DB_NAME"

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run integration tests with HTTPBin"
+
+set -e
+
+echo "Running integration tests against HTTPBin..."
+node cli/index.js run examples/httpbin.test.js --verbose

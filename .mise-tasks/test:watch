@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run tests in watch mode"
+
+set -e
+
+echo "Running Jest in watch mode..."
+node --experimental-vm-modules node_modules/jest/bin/jest.js --watch

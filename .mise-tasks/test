@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Run all Iudex tests (unit + integration)"
+#MISE depends=["test_unit", "test_integration"]
+
+set -e
+
+echo ""
+echo "🧪 Running Iudex Test Suite"
+echo "=============================="
+echo ""
+
+# Run unit tests
+echo "📦 Running unit tests..."
+mise run test_unit
+
+echo ""
+echo "🌐 Running integration tests..."
+mise run test_integration
+
+echo ""
+echo "✅ All tests completed successfully!"

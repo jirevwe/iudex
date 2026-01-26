@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run CLI in watch mode"
+
+set -e
+
+echo "Starting Iudex CLI in watch mode..."
+node --watch cli/index.js run

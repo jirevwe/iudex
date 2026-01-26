@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="Drop and recreate database"
+
+set -e
+
+# Configuration
+DB_NAME="${DB_NAME:-iudex}"
+
+echo "🗑️  Resetting PostgreSQL database..."
+echo ""
+
+echo "Dropping database: $DB_NAME"
+psql postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
+
+echo ""
+echo "Recreating database..."
+mise run db_setup

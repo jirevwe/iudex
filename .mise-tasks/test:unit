@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Run Jest unit tests"
+
+set -e
+
+echo "Running Jest unit tests..."
+node --experimental-vm-modules node_modules/jest/bin/jest.js \
+  --testPathIgnorePatterns="/examples/" \
+  --colors

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run ESLint"
+
+set -e
+
+echo "Running ESLint..."
+npx eslint .

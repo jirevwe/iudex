@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#MISE description="Show database status and statistics"
+
+set -e
+
+# Configuration
+DB_NAME="${DB_NAME:-iudex}"
+DB_USER="${DB_USER:-iudex_user}"
+DB_PASSWORD="${DB_PASSWORD:-iudex_pass}"
+
+echo "📊 Iudex Database Status"
+echo "========================"
+echo ""
+
+echo "Connection Info:"
+echo "  Database: $DB_NAME"
+echo "  User: $DB_USER"
+echo "  Host: ${DB_HOST:-localhost}:${DB_PORT:-5432}"
+echo ""
+
+echo "Statistics:"
+PGPASSWORD=$DB_PASSWORD psql -U $DB_USER -d $DB_NAME -c "
+SELECT
+    (SELECT COUNT(*) FROM tests) as total_tests,
+    (SELECT COUNT(*) FROM test_runs) as total_runs,
+    (SELECT COUNT(*) FROM test_results) as total_results,
+    (SELECT COUNT(*) FROM test_history) as history_entries;
+"
+
+echo ""
+echo "Recent Test Runs:"
+PGPASSWORD=$DB_PASSWORD psql -U $DB_USER -d $DB_NAME -c "
+SELECT
+    id,
+    environment,
+    branch,
+    total_tests,
+    passed_tests,
+    failed_tests,
+    TO_CHAR(started_at, 'YYYY-MM-DD HH24:MI:SS') as started_at
+FROM test_runs
+ORDER BY started_at DESC
+LIMIT 5;
+"
+
+echo ""
+echo "To connect: PGPASSWORD=\$DB_PASSWORD psql -U $DB_USER -d $DB_NAME"
