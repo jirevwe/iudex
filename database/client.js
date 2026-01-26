@@ -85,26 +85,128 @@ export class DatabaseClient {
   }
 
   /**
-   * Execute a transaction with multiple queries
-   * @param {Function} callback - Async function that receives a client
+   * Sleep for a specified number of milliseconds
+   * @param {number} ms - Milliseconds to sleep
+   * @private
    */
-  async transaction(callback) {
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Calculate exponential backoff delay with jitter
+   * @param {number} attempt - Current attempt number (0-indexed)
+   * @returns {number} Delay in milliseconds
+   * @private
+   */
+  _calculateBackoff(attempt) {
+    const exponentialDelay = this.retryConfig.baseDelay * Math.pow(2, attempt);
+    const jitter = Math.random() * 0.3 * exponentialDelay; // 0-30% jitter
+    const delay = Math.min(exponentialDelay + jitter, this.retryConfig.maxDelay);
+    return Math.floor(delay);
+  }
+
+  /**
+   * Check if an error is retryable
+   * @param {Error} error - Database error
+   * @returns {boolean} True if error should be retried
+   * @private
+   */
+  _isRetryableError(error) {
+    // PostgreSQL error codes:
+    // 23505 - unique_violation (constraint violation)
+    // 40P01 - deadlock_detected
+    // 40001 - serialization_failure
+
+    if (error.code === '23505' && this.retryConfig.retryOnConstraintViolation) {
+      this.metrics.constraintViolationCount++;
+      return true;
+    }
+
+    if ((error.code === '40P01' || error.code === '40001') && this.retryConfig.retryOnDeadlock) {
+      this.metrics.deadlockCount++;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Execute a transaction with multiple queries and automatic retry
+   * @param {Function} callback - Async function that receives a client
+   * @param {Object} options - Transaction options
+   * @param {number} options.maxRetries - Override default max retries
+   * @param {boolean} options.enableRetry - Enable/disable retry (default: true)
+   */
+  async transaction(callback, options = {}) {
     if (!this.isConnected) {
       await this.connect();
     }
 
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      const result = await callback(client);
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    const maxRetries = options.maxRetries !== undefined ? options.maxRetries : this.retryConfig.maxRetries;
+    const enableRetry = options.enableRetry !== false;
+
+    let lastError;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const client = await this.pool.connect();
+      const startTime = Date.now();
+
+      try {
+        await client.query('BEGIN');
+        this.metrics.transactionCount++;
+
+        const result = await callback(client);
+
+        await client.query('COMMIT');
+
+        const duration = Date.now() - startTime;
+        if (duration > 1000) {
+          logger.warn({ duration, attempt }, 'Long-running transaction detected');
+        }
+
+        if (attempt > 0) {
+          logger.info({ attempt, duration }, 'Transaction succeeded after retry');
+        }
+
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        this.metrics.rollbackCount++;
+        lastError = error;
+
+        const isRetryable = enableRetry && this._isRetryableError(error);
+        const canRetry = attempt < maxRetries && isRetryable;
+
+        if (canRetry) {
+          this.metrics.retryCount++;
+          const delay = this._calculateBackoff(attempt);
+
+          logger.warn({
+            attempt: attempt + 1,
+            maxRetries,
+            errorCode: error.code,
+            errorMessage: error.message,
+            delayMs: delay
+          }, 'Transaction failed, retrying...');
+
+          await this._sleep(delay);
+        } else {
+          if (isRetryable && attempt >= maxRetries) {
+            logger.error({
+              attempt: attempt + 1,
+              errorCode: error.code,
+              errorMessage: error.message
+            }, 'Transaction failed after max retries');
+          }
+          throw error;
+        }
+      } finally {
+        client.release();
+      }
     }
+
+    throw lastError;
   }
 
   /**
