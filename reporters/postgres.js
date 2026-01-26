@@ -67,92 +67,129 @@ export class PostgresReporter {
       const metadata = collector.getMetadata();
       const gitInfo = this.getGitMetadata();
 
-      // Get or create a test suite
-      const suiteId = await this.repository.createOrGetSuite(
-        metadata.suiteName || 'Default Suite',
-        metadata.description
-      );
+      // Wrap entire report in single transaction for atomicity
+      const runId = await this.dbClient.transaction(async (client) => {
+        // Create or get suite (inline query with transaction client)
+        const suiteResult = await client.query(
+          `INSERT INTO test_suites (name, description)
+           VALUES ($1, $2)
+           ON CONFLICT (name)
+           DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+           RETURNING id`,
+          [metadata.suiteName || 'Default Suite', metadata.description || '']
+        );
+        const suiteId = suiteResult.rows[0].id;
 
-      // Prepare test run data
-      const runData = {
-        environment: metadata.environment || process.env.NODE_ENV || 'development',
-        branch: gitInfo.branch,
-        commitSha: gitInfo.commitSha,
-        commitMessage: gitInfo.commitMessage,
-        status: summary.failed > 0 ? 'failed' : 'passed',
-        totalTests: summary.total,
-        passedTests: summary.passed,
-        failedTests: summary.failed,
-        skippedTests: summary.skipped || 0,
-        durationMs: metadata.duration || 0,
-        startedAt: metadata.startTime || new Date(),
-        completedAt: metadata.endTime || new Date(),
-        triggeredBy: process.env.GITHUB_ACTOR || process.env.USER || 'unknown',
-        runUrl: process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
-          ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-          : null
-      };
-
-      // Create test run
-      const runId = await this.repository.createTestRun(suiteId, runData);
-
-      // Insert individual test results
-      const testResults = collector.getAllResults();
-      for (const result of testResults) {
-        const testData = {
-          testName: result.test || result.name,
-          testDescription: result.description || null,
-          testSlug: result.testId || null,  // NEW: Pass test slug
-          suiteName: result.suite || metadata.suiteName,
-          testFile: result.file || null,
-          endpoint: result.endpoint || null,
-          httpMethod: result.method || result.httpMethod || null,
-          status: result.status,
-          durationMs: result.duration || 0,
-          responseTimeMs: result.responseTime || null,
-          statusCode: result.statusCode || null,
-          errorMessage: result.error || null,
-          errorType: result.errorType || null,
-          stackTrace: result.stack || null,
-          assertionsPassed: result.assertionsPassed || null,
-          assertionsFailed: result.assertionsFailed || null,
-          requestBody: result.requestBody ? JSON.stringify(result.requestBody) : null,
-          responseBody: result.responseBody ? JSON.stringify(result.responseBody) : null
+        // Prepare test run data
+        const runData = {
+          environment: metadata.environment || process.env.NODE_ENV || 'development',
+          branch: gitInfo.branch,
+          commitSha: gitInfo.commitSha,
+          commitMessage: gitInfo.commitMessage,
+          status: summary.failed > 0 ? 'failed' : 'passed',
+          totalTests: summary.total,
+          passedTests: summary.passed,
+          failedTests: summary.failed,
+          skippedTests: summary.skipped || 0,
+          durationMs: metadata.duration || 0,
+          startedAt: metadata.startTime || new Date(),
+          completedAt: metadata.endTime || new Date(),
+          triggeredBy: process.env.GITHUB_ACTOR || process.env.USER || 'unknown',
+          runUrl: process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+            ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+            : null
         };
 
-        await this.repository.createTestResult(runId, testData);
-      }
-
-      // Track deletion: collect current test slugs and suite names
-      const currentTestSlugs = testResults
-        .map(r => r.testId)
-        .filter(slug => slug != null);
-
-      // Collect suite names from both test results AND the suites list
-      // This ensures we include suites that were executed but have no tests
-      const results = collector.getResults();
-      const allSuites = results.suites || [];
-      const suiteNamesFromTests = testResults
-        .map(r => r.suite || metadata.suiteName)
-        .filter(suite => suite != null);
-      const suiteNamesFromSuites = allSuites.map(s => s.name).filter(name => name != null);
-      const suiteNames = [...new Set([...suiteNamesFromTests, ...suiteNamesFromSuites])];
-
-      // Mark tests as deleted if they didn't appear in this run
-      if (suiteNames.length > 0) {
-        const deletedTests = await this.repository.markDeletedTests(
-          runId,
-          currentTestSlugs,
-          suiteNames
+        // Create test run (inline query with transaction client)
+        const runResult = await client.query(
+          `INSERT INTO test_runs (
+            suite_id, environment, branch, commit_sha, commit_message,
+            status, total_tests, passed_tests, failed_tests, skipped_tests,
+            duration_ms, started_at, completed_at, triggered_by, run_url
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          RETURNING id`,
+          [
+            suiteId,
+            runData.environment,
+            runData.branch,
+            runData.commitSha,
+            runData.commitMessage,
+            runData.status,
+            runData.totalTests,
+            runData.passedTests,
+            runData.failedTests,
+            runData.skippedTests,
+            runData.durationMs != null ? Math.round(runData.durationMs) : 0,
+            runData.startedAt,
+            runData.completedAt,
+            runData.triggeredBy,
+            runData.runUrl
+          ]
         );
+        const runId = runResult.rows[0].id;
 
-        if (deletedTests.length > 0) {
-          logger.info({ count: deletedTests.length, tests: deletedTests.map(t => ({ name: t.current_name, slug: t.test_slug })) }, `\n🗑️  Deleted tests detected: ${deletedTests.length}`);
-          deletedTests.forEach(test => {
-            logger.info(`   - ${test.current_name} (${test.test_slug})`);
-          });
+        // Insert all test results atomically within transaction
+        const testResults = collector.getAllResults();
+        for (const result of testResults) {
+          const testData = {
+            testName: result.test || result.name,
+            testDescription: result.description || null,
+            testSlug: result.testId || null,  // NEW: Pass test slug
+            suiteName: result.suite || metadata.suiteName,
+            testFile: result.file || null,
+            endpoint: result.endpoint || null,
+            httpMethod: result.method || result.httpMethod || null,
+            status: result.status,
+            durationMs: result.duration || 0,
+            responseTimeMs: result.responseTime || null,
+            statusCode: result.statusCode || null,
+            errorMessage: result.error || null,
+            errorType: result.errorType || null,
+            stackTrace: result.stack || null,
+            assertionsPassed: result.assertionsPassed || null,
+            assertionsFailed: result.assertionsFailed || null,
+            requestBody: result.requestBody ? JSON.stringify(result.requestBody) : null,
+            responseBody: result.responseBody ? JSON.stringify(result.responseBody) : null
+          };
+
+          // Pass transaction client for nested transaction support
+          await this.repository.createTestResult(runId, testData, client);
         }
-      }
+
+        // Track deletion: collect current test slugs and suite names
+        const currentTestSlugs = testResults
+          .map(r => r.testId)
+          .filter(slug => slug != null);
+
+        // Collect suite names from both test results AND the suites list
+        // This ensures we include suites that were executed but have no tests
+        const results = collector.getResults();
+        const allSuites = results.suites || [];
+        const suiteNamesFromTests = testResults
+          .map(r => r.suite || metadata.suiteName)
+          .filter(suite => suite != null);
+        const suiteNamesFromSuites = allSuites.map(s => s.name).filter(name => name != null);
+        const suiteNames = [...new Set([...suiteNamesFromTests, ...suiteNamesFromSuites])];
+
+        // Mark tests as deleted if they didn't appear in this run (pass client)
+        if (suiteNames.length > 0) {
+          const deletedTests = await this.repository.markDeletedTests(
+            runId,
+            currentTestSlugs,
+            suiteNames,
+            client  // Pass transaction client
+          );
+
+          if (deletedTests.length > 0) {
+            logger.info({ count: deletedTests.length, tests: deletedTests.map(t => ({ name: t.current_name, slug: t.test_slug })) }, `\n🗑️  Deleted tests detected: ${deletedTests.length}`);
+            deletedTests.forEach(test => {
+              logger.info(`   - ${test.current_name} (${test.test_slug})`);
+            });
+          }
+        }
+
+        return runId;
+      });
 
       logger.info({ runId }, `\n✓ Test results persisted to database (run_id: ${runId})`);
 
