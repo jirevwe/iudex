@@ -3,6 +3,9 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { getLogger } from '../core/logger.js';
+
+const logger = getLogger().child({ module: 'json-reporter' });
 
 export class JsonReporter {
   constructor(config = {}) {
@@ -64,7 +67,7 @@ export class JsonReporter {
         'utf-8'
       );
 
-      console.log(`\n✓ Test results saved to ${filepath}`);
+      logger.info({ filepath }, `\n✓ Test results saved to ${filepath}`);
 
       // Also write/update latest.json for easy access
       if (this.config.writeLatest) {
@@ -78,10 +81,10 @@ export class JsonReporter {
 
       // Show quick summary
       const summary = results.summary;
-      console.log(`   Total: ${summary.total}, Passed: ${summary.passed}, Failed: ${summary.failed}, Skipped: ${summary.skipped || 0}`);
+      logger.info({ summary }, `   Total: ${summary.total}, Passed: ${summary.passed}, Failed: ${summary.failed}, Skipped: ${summary.skipped || 0}`);
 
     } catch (error) {
-      console.error('\n✗ Failed to write JSON results:', error.message);
+      logger.error({ error: error.message, stack: error.stack }, '\n✗ Failed to write JSON results');
       if (this.config.throwOnError) {
         throw error;
       }
@@ -154,7 +157,7 @@ export class JsonReporter {
     });
 
     await Promise.all(deletePromises);
-    console.log(`\n🧹 Cleaned up ${toDelete.length} old test run(s)`);
+    logger.info({ count: toDelete.length }, `\n🧹 Cleaned up ${toDelete.length} old test run(s)`);
   }
 }
 
