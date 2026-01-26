@@ -7,6 +7,7 @@ describe('HTTPBin Basic Tests', {prefix: 'saas.ui'}, () => {
     })
 
 })
+import {describe, test, expect, beforeEach} from '../core/dsl.js';
 
 describe('HTTPBin API Examples', {prefix: 'saas.api'}, () => {
     let baseUrl;
@@ -203,4 +204,196 @@ describe('HTTPBin Error Handling', {
         expect(response.status).toBe(200);
         expect(response.data.url).toContain('/get');
     });
+});
+
+describe('Rating Widget UI Tests', {
+    prefix: 'widget.ui'
+}, () => {
+    const widgetPath = new URL('./rating-widget/index.html', import.meta.url).pathname;
+
+    async function setupBrowser() {
+        const {chromium} = await import('playwright');
+        const browser = await chromium.launch({headless: true});
+        const page = await browser.newPage();
+        await page.goto(`file://${widgetPath}`);
+        await page.waitForSelector('.depth-container');
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+        await page.waitForSelector('.depth-container');
+        // Show controls by modifying CSS to always display them
+        await page.evaluate(() => {
+            const controls = document.querySelector('.controls');
+            controls.style.display = 'flex';
+        });
+        return {browser, page};
+    }
+
+    test('should display initial state correctly', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            const pointsText = await page.locator('#currentPoints').textContent();
+            expect(parseInt(pointsText)).toBe(2500);
+
+            const depthIcon = await page.locator('#depthIcon');
+            const iconSrc = await depthIcon.getAttribute('src');
+            expect(iconSrc).toContain('depth-3.png');
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_initial_state'});
+
+    test('should add 100 points when clicking +100 button', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            await page.click('button:has-text("+100")');
+            await page.waitForTimeout(200);
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            expect(parseInt(pointsText)).toBe(2600);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_add_100'});
+
+    test('should add 200 points when clicking +200 button', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            await page.click('button:has-text("+200")');
+            await page.waitForTimeout(200);
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            expect(parseInt(pointsText)).toBe(2700);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_add_200'});
+
+    test('should subtract 100 points when clicking -100 button', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            await page.click('button:has-text("-100")');
+            await page.waitForTimeout(200);
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            expect(parseInt(pointsText)).toBe(2400);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_subtract_100'});
+
+    test('should subtract 200 points when clicking -200 button', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            await page.click('button:has-text("-200")');
+            await page.waitForTimeout(200);
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            expect(parseInt(pointsText)).toBe(2300);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_subtract_200'});
+
+    test('should update depth level when crossing threshold', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            await page.fill('#pointsInput', '4000');
+            await page.click('button:has-text("Set Points")');
+            await page.waitForTimeout(200);
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            expect(parseInt(pointsText)).toBe(4000);
+
+            const depthIcon = await page.locator('#depthIcon');
+            const iconSrc = await depthIcon.getAttribute('src');
+            expect(iconSrc).toContain('depth-4.png');
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_depth_threshold'});
+
+    test('should not allow points below 0', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            // Subtract more than available points
+            for (let i = 0; i < 15; i++) {
+                await page.click('button:has-text("-200")');
+                await page.waitForTimeout(50);
+            }
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            const points = parseInt(pointsText);
+            expect(points).toBeGreaterThanOrEqual(0);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_min_points'});
+
+    test('should not allow points above 10000', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            await page.fill('#pointsInput', '9900');
+            await page.click('button:has-text("Set Points")');
+            await page.waitForTimeout(200);
+
+            // Try to add more points
+            await page.click('button:has-text("+200")');
+            await page.waitForTimeout(100);
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            const points = parseInt(pointsText);
+            expect(points).toBeLessThanOrEqual(10000);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_max_points'});
+
+    test('should update progress bar as points change', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            const initialWidth = await page.locator('#pointsBar').evaluate(el => el.style.width);
+
+            await page.click('button:has-text("+200")');
+            await page.waitForTimeout(300);
+
+            const newWidth = await page.locator('#pointsBar').evaluate(el => el.style.width);
+
+            // Progress bar should increase
+            const initial = parseFloat(initialWidth) || 0;
+            const updated = parseFloat(newWidth) || 0;
+            expect(updated).toBeGreaterThan(initial);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_progress_bar'});
+
+    test('should persist points to localStorage', async () => {
+        const {browser, page} = await setupBrowser();
+        try {
+            await page.fill('#pointsInput', '5000');
+            await page.click('button:has-text("Set Points")');
+            await page.waitForTimeout(200);
+
+            const storedPoints = await page.evaluate(() => localStorage.getItem('deepOfNightPoints'));
+            expect(storedPoints).toBe('5000');
+
+            await page.reload();
+            await page.waitForSelector('.depth-container');
+
+            const pointsText = await page.locator('#currentPoints').textContent();
+            expect(parseInt(pointsText)).toBe(5000);
+        } finally {
+            await page.close();
+            await browser.close();
+        }
+    }, {id: 'widget_persistence'});
 });
