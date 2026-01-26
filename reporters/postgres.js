@@ -15,6 +15,9 @@ export class PostgresReporter {
     this.repository = null;
     // Default to disabled - must be explicitly enabled
     this.enabled = config.enabled === true;
+    // Batching configuration for large reports
+    this.batchSize = config.batchSize || 100;
+    this.enableBatching = config.enableBatching !== false; // Enabled by default
   }
 
   /**
@@ -52,6 +55,21 @@ export class PostgresReporter {
   }
 
   /**
+   * Split an array into batches of specified size
+   * @param {Array} array - Array to split
+   * @param {number} batchSize - Size of each batch
+   * @returns {Array<Array>} Array of batches
+   * @private
+   */
+  _splitIntoBatches(array, batchSize) {
+    const batches = [];
+    for (let i = 0; i < array.length; i += batchSize) {
+      batches.push(array.slice(i, i + batchSize));
+    }
+    return batches;
+  }
+
+  /**
    * Report test results to PostgreSQL
    * @param {Object} collector - Result collector instance
    */
@@ -66,8 +84,20 @@ export class PostgresReporter {
       const summary = collector.getSummary();
       const metadata = collector.getMetadata();
       const gitInfo = this.getGitMetadata();
+      const testResults = collector.getAllResults();
 
-      // Wrap entire report in single transaction for atomicity
+      // Decide between single-transaction mode (full atomicity) and batched mode (scalability)
+      const shouldBatch = this.enableBatching && testResults.length > this.batchSize;
+
+      if (shouldBatch) {
+        logger.info({
+          totalResults: testResults.length,
+          batchSize: this.batchSize
+        }, `Using batched mode for large report`);
+        return await this._reportBatched(testResults, summary, metadata, gitInfo, collector);
+      }
+
+      // Single transaction mode for full atomicity (small reports)
       const runId = await this.dbClient.transaction(async (client) => {
         // Create or get suite (inline query with transaction client)
         const suiteResult = await client.query(
@@ -129,7 +159,6 @@ export class PostgresReporter {
         const runId = runResult.rows[0].id;
 
         // Insert all test results atomically within transaction
-        const testResults = collector.getAllResults();
         for (const result of testResults) {
           const testData = {
             testName: result.test || result.name,
@@ -206,6 +235,188 @@ export class PostgresReporter {
         await this.dbClient.close();
       }
     }
+  }
+
+  /**
+   * Report test results using batched transactions for scalability
+   * Used for large reports (> batchSize results)
+   * @param {Array} testResults - All test results
+   * @param {Object} summary - Test summary
+   * @param {Object} metadata - Test metadata
+   * @param {Object} gitInfo - Git information
+   * @param {Object} collector - Result collector
+   * @returns {number} Run ID
+   * @private
+   */
+  async _reportBatched(testResults, summary, metadata, gitInfo, collector) {
+    // Step 1: Create suite and run in a transaction
+    const { suiteId, runId } = await this.dbClient.transaction(async (client) => {
+      const suiteResult = await client.query(
+        `INSERT INTO test_suites (name, description)
+         VALUES ($1, $2)
+         ON CONFLICT (name)
+         DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+         RETURNING id`,
+        [metadata.suiteName || 'Default Suite', metadata.description || '']
+      );
+      const suiteId = suiteResult.rows[0].id;
+
+      const runData = {
+        environment: metadata.environment || process.env.NODE_ENV || 'development',
+        branch: gitInfo.branch,
+        commitSha: gitInfo.commitSha,
+        commitMessage: gitInfo.commitMessage,
+        status: summary.failed > 0 ? 'failed' : 'passed',
+        totalTests: summary.total,
+        passedTests: summary.passed,
+        failedTests: summary.failed,
+        skippedTests: summary.skipped || 0,
+        durationMs: metadata.duration || 0,
+        startedAt: metadata.startTime || new Date(),
+        completedAt: metadata.endTime || new Date(),
+        triggeredBy: process.env.GITHUB_ACTOR || process.env.USER || 'unknown',
+        runUrl: process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+          ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+          : null
+      };
+
+      const runResult = await client.query(
+        `INSERT INTO test_runs (
+          suite_id, environment, branch, commit_sha, commit_message,
+          status, total_tests, passed_tests, failed_tests, skipped_tests,
+          duration_ms, started_at, completed_at, triggered_by, run_url
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING id`,
+        [
+          suiteId,
+          runData.environment,
+          runData.branch,
+          runData.commitSha,
+          runData.commitMessage,
+          runData.status,
+          runData.totalTests,
+          runData.passedTests,
+          runData.failedTests,
+          runData.skippedTests,
+          runData.durationMs != null ? Math.round(runData.durationMs) : 0,
+          runData.startedAt,
+          runData.completedAt,
+          runData.triggeredBy,
+          runData.runUrl
+        ]
+      );
+
+      return { suiteId, runId: runResult.rows[0].id };
+    });
+
+    logger.info({ runId, suiteId }, 'Created test suite and run');
+
+    // Step 2: Process test results in batches
+    const batches = this._splitIntoBatches(testResults, this.batchSize);
+    let processedCount = 0;
+    let failedBatches = 0;
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+
+      try {
+        await this.dbClient.transaction(async (client) => {
+          for (const result of batch) {
+            const testData = {
+              testName: result.test || result.name,
+              testDescription: result.description || null,
+              testSlug: result.testId || null,
+              suiteName: result.suite || metadata.suiteName,
+              testFile: result.file || null,
+              endpoint: result.endpoint || null,
+              httpMethod: result.method || result.httpMethod || null,
+              status: result.status,
+              durationMs: result.duration || 0,
+              responseTimeMs: result.responseTime || null,
+              statusCode: result.statusCode || null,
+              errorMessage: result.error || null,
+              errorType: result.errorType || null,
+              stackTrace: result.stack || null,
+              assertionsPassed: result.assertionsPassed || null,
+              assertionsFailed: result.assertionsFailed || null,
+              requestBody: result.requestBody ? JSON.stringify(result.requestBody) : null,
+              responseBody: result.responseBody ? JSON.stringify(result.responseBody) : null
+            };
+
+            await this.repository.createTestResult(runId, testData, client);
+          }
+        });
+
+        processedCount += batch.length;
+        logger.debug({
+          batch: i + 1,
+          totalBatches: batches.length,
+          batchSize: batch.length,
+          processed: processedCount,
+          total: testResults.length
+        }, `Processed batch ${i + 1}/${batches.length}`);
+      } catch (error) {
+        failedBatches++;
+        logger.error({
+          batch: i + 1,
+          batchSize: batch.length,
+          error: error.message
+        }, `Failed to process batch ${i + 1}`);
+
+        if (this.config.throwOnError) {
+          throw error;
+        }
+      }
+    }
+
+    if (failedBatches > 0) {
+      logger.warn({
+        failedBatches,
+        totalBatches: batches.length,
+        processedCount,
+        total: testResults.length
+      }, `Completed with ${failedBatches} failed batches`);
+    }
+
+    // Step 3: Mark deleted tests in a final transaction
+    try {
+      await this.dbClient.transaction(async (client) => {
+        const currentTestSlugs = testResults
+          .map(r => r.testId)
+          .filter(slug => slug != null);
+
+        const results = collector.getResults();
+        const allSuites = results.suites || [];
+        const suiteNamesFromTests = testResults
+          .map(r => r.suite || metadata.suiteName)
+          .filter(suite => suite != null);
+        const suiteNamesFromSuites = allSuites.map(s => s.name).filter(name => name != null);
+        const suiteNames = [...new Set([...suiteNamesFromTests, ...suiteNamesFromSuites])];
+
+        if (suiteNames.length > 0) {
+          const deletedTests = await this.repository.markDeletedTests(
+            runId,
+            currentTestSlugs,
+            suiteNames,
+            client
+          );
+
+          if (deletedTests.length > 0) {
+            logger.info({ count: deletedTests.length, tests: deletedTests.map(t => ({ name: t.current_name, slug: t.test_slug })) }, `\n🗑️  Deleted tests detected: ${deletedTests.length}`);
+            deletedTests.forEach(test => {
+              logger.info(`   - ${test.current_name} (${test.test_slug})`);
+            });
+          }
+        }
+      });
+    } catch (error) {
+      logger.error({ error: error.message }, 'Failed to mark deleted tests');
+      if (this.config.throwOnError) {
+        throw error;
+      }
+    }
+
+    return runId;
   }
 
   /**
