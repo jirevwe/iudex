@@ -392,20 +392,28 @@ npm test database/repository.test.js
 ```
 
 #### Integration Tests (`deletion-detection.integration.test.js`)
-- Tests full deletion detection workflow with real database
+- Tests full deletion detection workflow with **real PostgreSQL database**
+- Uses **Testcontainers** - automatically spins up PostgreSQL in Docker
+- **No manual setup required!** Tests run automatically in CI/CD
 - Tests test resurrection (deleted tests reappearing)
 - Tests suite isolation (only marking tests from executed suites as deleted)
 - Tests suite tracking (updating suite_name when tests move between suites)
 
-**Prerequisites:**
-1. PostgreSQL must be running
-2. Create test database: `createdb iudex_test`
-3. Run schema: `psql -d iudex_test -f database/schema.sql`
+**Requirements:**
+- Docker must be installed and running
+- That's it! Testcontainers handles the rest
 
 **Run integration tests:**
 ```bash
-TEST_DB_ENABLED=true DB_NAME=iudex_test npm test database/deletion-detection.integration.test.js
+npm test database/deletion-detection.integration.test.js
 ```
+
+The integration tests will:
+1. ✅ Automatically download PostgreSQL Docker image (first run only)
+2. ✅ Start a PostgreSQL container
+3. ✅ Apply schema and migrations
+4. ✅ Run all tests
+5. ✅ Stop and clean up the container
 
 ### Test Coverage
 
@@ -432,23 +440,33 @@ The tests ensure protection against regressions for:
 
 ### Continuous Integration
 
-Example GitHub Actions configuration for integration tests:
+Testcontainers makes CI/CD integration effortless. Example GitHub Actions configuration:
 
 ```yaml
-- name: Setup PostgreSQL
-  run: |
-    sudo systemctl start postgresql
-    sudo -u postgres createdb iudex_test
-    sudo -u postgres psql -d iudex_test -f database/schema.sql
+name: Tests
 
-- name: Run all tests
-  env:
-    TEST_DB_ENABLED: true
-    DB_HOST: localhost
-    DB_NAME: iudex_test
-    DB_USER: postgres
-  run: npm test
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run All Tests (including integration)
+        run: npm test
 ```
+
+**That's it!** Testcontainers automatically handles PostgreSQL setup in CI. No services configuration needed.
 
 ## Support
 
