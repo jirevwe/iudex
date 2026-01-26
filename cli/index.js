@@ -10,6 +10,9 @@ import { ResultCollector } from '../core/collector.js';
 import { ConsoleReporter } from '../reporters/console.js';
 import { JsonReporter } from '../reporters/json.js';
 import { PostgresReporter } from '../reporters/postgres.js';
+import { getLogger } from '../core/logger.js';
+
+const logger = getLogger().child({ module: 'cli' });
 
 const program = new Command();
 
@@ -44,7 +47,7 @@ program
             const testFiles = await loadTestFiles(pattern || config.testMatch);
 
             if (testFiles.length === 0) {
-                console.error('No test files found');
+                logger.error('No test files found');
                 process.exit(1);
             }
 
@@ -81,10 +84,10 @@ program
             process.exit(collector.hasFailures() ? 1 : 0);
 
         } catch (error) {
-            console.error('Error running tests:', error.message);
-            if (options.verbose) {
-                console.error(error.stack);
-            }
+            logger.error({
+                error: error.message,
+                stack: options.verbose ? error.stack : undefined
+            }, 'Error running tests');
             process.exit(1);
         }
     });
@@ -151,7 +154,7 @@ async function loadConfig(configPath) {
         const configModule = await import(pathToFileURL(fullPath).href);
         return configModule.default || configModule;
     } catch (error) {
-        console.warn(`Failed to load config from ${configPath}:`, error.message);
+        logger.warn({ error: error.message, configPath }, 'Failed to load config');
         return {
             testMatch: ['tests/**/*.test.js', 'examples/**/*.test.js'],
             timeout: 30000,
@@ -215,18 +218,18 @@ async function loadReporters(config, options) {
                 case 'github-pages':
                 case 'backend':
                     // Placeholder for Week 3 reporters
-                    console.log(`Reporter '${reporterName}' not yet implemented`);
+                    logger.info({ reporterName }, 'Reporter not yet implemented');
                     break;
 
                 default:
-                    console.warn(`Unknown reporter: ${reporterName}`);
+                    logger.warn({ reporterName }, 'Unknown reporter');
             }
 
             if (reporter) {
                 reporters.push(reporter);
             }
         } catch (error) {
-            console.warn(`Failed to load reporter '${reporterName}':`, error.message);
+            logger.warn({ error: error.message, reporterName }, 'Failed to load reporter');
         }
     }
 
