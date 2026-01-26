@@ -40,7 +40,7 @@ Comprehensive test suite added to protect deletion detection and suite tracking 
 
 ### 2. Integration Tests: `database/deletion-detection.integration.test.js`
 
-**11 test cases (skipped by default)** testing full deletion detection workflow with real PostgreSQL database.
+**11 test cases** testing full deletion detection workflow with **real PostgreSQL database using Testcontainers**.
 
 #### Basic Deletion Detection (3 tests)
 - ✅ Marks test as deleted when it doesn't appear in run
@@ -80,13 +80,13 @@ Comprehensive test suite added to protect deletion detection and suite tracking 
 ## Test Statistics
 
 ```
-Total Test Suites: 9 (8 passed, 1 skipped)
-Total Tests: 257 (246 passed, 11 skipped)
+Total Test Suites: 9 (all passing) ✅
+Total Tests: 257 (all passing) ✅
 
 New Tests Added:
-- Unit Tests: 20 (all passing)
-- Integration Tests: 11 (skipped by default, pass when enabled)
-- Reporter Tests: 6 (all passing)
+- Unit Tests: 20 ✅
+- Integration Tests: 11 ✅ (using Testcontainers)
+- Reporter Tests: 6 ✅
 ```
 
 ## Running Tests
@@ -101,9 +101,10 @@ npm test
 npm test database/repository.test.js
 ```
 
-### Run Integration Tests (Requires PostgreSQL)
+### Run Integration Tests (Requires Docker)
 ```bash
-TEST_DB_ENABLED=true DB_NAME=iudex_test npm test database/deletion-detection.integration.test.js
+# Integration tests use Testcontainers - Docker must be running
+npm test database/deletion-detection.integration.test.js
 ```
 
 ### Run Reporter Tests
@@ -113,25 +114,32 @@ npm test reporters/postgres.test.js
 
 ## Integration Test Setup
 
-Integration tests require a running PostgreSQL instance:
+Integration tests use **Testcontainers** for automatic PostgreSQL setup:
 
+**Prerequisites:**
 ```bash
-# Create test database
-createdb iudex_test
-
-# Initialize schema
-psql -d iudex_test -f database/schema.sql
-
-# Run migration
-psql -d iudex_test -f database/migrations/002_add_deleted_at.sql
-
-# Enable and run integration tests
-TEST_DB_ENABLED=true npm test
+# Only requirement: Docker must be installed and running
+docker --version
 ```
+
+**Run tests:**
+```bash
+# That's it! Testcontainers handles everything automatically:
+npm test
+
+# What happens automatically:
+# 1. Downloads PostgreSQL Docker image (first run only)
+# 2. Starts PostgreSQL container
+# 3. Applies schema and migrations
+# 4. Runs all tests
+# 5. Stops and cleans up container
+```
+
+**No manual database setup required!** 🎉
 
 ## CI/CD Integration
 
-Tests are designed to run in CI/CD pipelines. Example GitHub Actions configuration:
+Testcontainers makes CI/CD integration **incredibly simple**. No services configuration needed!
 
 ```yaml
 name: Tests
@@ -141,21 +149,6 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: iudex_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v3
@@ -168,20 +161,17 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Setup Database
-        run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d iudex_test -f database/schema.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d iudex_test -f database/migrations/002_add_deleted_at.sql
-
-      - name: Run Tests
-        env:
-          TEST_DB_ENABLED: true
-          DB_HOST: localhost
-          DB_NAME: iudex_test
-          DB_USER: postgres
-          DB_PASSWORD: postgres
+      - name: Run All Tests
         run: npm test
 ```
+
+**That's it!** Testcontainers automatically:
+- ✅ Detects CI environment
+- ✅ Starts PostgreSQL container
+- ✅ Runs tests
+- ✅ Cleans up containers
+
+No database services, no manual setup, no environment variables!
 
 ## Test Coverage Summary
 
