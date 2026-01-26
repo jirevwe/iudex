@@ -14,8 +14,8 @@ function slugify(text, maxLength = 512) {
         .toLowerCase()
         .trim()
         .replace(/\s+/g, '-')           // Replace spaces with "-"
-        .replace(/[^\w\-\.]+/g, '')     // Remove all non-word chars except "-" and "."
-        .replace(/\-\-+/g, '-')         // Replace multiple hyphens ("-") with a single one
+        .replace(/[^\w\-.]+/g, '')     // Remove all non-word chars except "-" and "."
+        .replace(/--+/g, '-')         // Replace multiple hyphens ("-") with a single one
         .replace(/^-+/, '')             // Trim - from the start of the string
         .replace(/-+$/, '')             // Trim - from the end of the string
         .substring(0, maxLength);       // Enforce max length
