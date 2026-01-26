@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS tests (
     -- Lifecycle
     first_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL,
     total_runs INTEGER DEFAULT 0,
     last_status VARCHAR(20), -- Latest status: 'passed', 'failed', 'skipped'
 
@@ -136,6 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_tests_current_name ON tests(current_name);
 CREATE INDEX IF NOT EXISTS idx_tests_suite_name ON tests(suite_name);
 CREATE INDEX IF NOT EXISTS idx_tests_endpoint ON tests(endpoint);
 CREATE INDEX IF NOT EXISTS idx_tests_last_seen ON tests(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tests_deleted_at ON tests(deleted_at);
 
 CREATE INDEX IF NOT EXISTS idx_test_history_test_id ON test_history(test_id);
 CREATE INDEX IF NOT EXISTS idx_test_history_valid_range ON test_history(valid_from, valid_to);
@@ -326,6 +328,34 @@ INSERT INTO test_suites (name, description) VALUES
 ('HTTPBin API', 'Tests for HTTPBin example endpoints'),
 ('Users API', 'Tests for user management endpoints');
 
+-- Deleted tests summary view
+CREATE OR REPLACE VIEW deleted_tests_summary AS
+SELECT
+    t.test_slug,
+    t.current_name,
+    t.suite_name,
+    t.endpoint,
+    t.http_method,
+    t.first_seen_at,
+    t.last_seen_at,
+    t.deleted_at,
+    t.total_runs,
+    t.last_status,
+    EXTRACT(DAY FROM (t.deleted_at - t.first_seen_at)) as days_lived,
+    (
+        SELECT COUNT(*)
+        FROM test_results tr
+        WHERE tr.test_id = t.id AND tr.status = 'passed'
+    ) as total_passes,
+    (
+        SELECT COUNT(*)
+        FROM test_results tr
+        WHERE tr.test_id = t.id AND tr.status = 'failed'
+    ) as total_failures
+FROM tests t
+WHERE t.deleted_at IS NOT NULL
+ORDER BY t.deleted_at DESC;
+
 -- Table comments
 COMMENT ON TABLE test_suites IS 'Test collections or modules';
 COMMENT ON TABLE test_runs IS 'Individual test execution runs';
@@ -341,3 +371,4 @@ COMMENT ON VIEW endpoint_success_rates IS 'Success rate statistics grouped by en
 COMMENT ON VIEW flaky_tests IS 'Tests that intermittently fail - tracked via stable slugs';
 COMMENT ON VIEW recent_regressions IS 'Tests that were passing but now failing (last 7 days)';
 COMMENT ON VIEW test_health_scores IS 'Multi-dimensional health metrics for each test';
+COMMENT ON VIEW deleted_tests_summary IS 'Tests that have been deleted from the codebase with historical context';
