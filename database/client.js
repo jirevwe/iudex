@@ -2,7 +2,10 @@
 // PostgreSQL connection pool with query execution and error handling
 
 import pg from 'pg';
+import { getLogger } from '../core/logger.js';
+
 const { Pool } = pg;
+const logger = getLogger().child({ module: 'database' });
 
 export class DatabaseClient {
   constructor(config = {}) {
@@ -39,11 +42,11 @@ export class DatabaseClient {
 
       // Handle pool errors
       this.pool.on('error', (err) => {
-        console.error('Unexpected database pool error:', err);
+        logger.error({ error: err.message, stack: err.stack }, 'Unexpected database pool error');
       });
 
     } catch (error) {
-      console.error('Failed to connect to database:', error.message);
+      logger.error({ error: error.message, stack: error.stack }, 'Failed to connect to database');
       throw error;
     }
   }
@@ -71,11 +74,12 @@ export class DatabaseClient {
       };
     } catch (error) {
       const duration = Date.now() - start;
-      console.error('Database query error:', {
+      logger.error({
         error: error.message,
         query: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
-        duration
-      });
+        duration,
+        stack: error.stack
+      }, 'Database query error');
       throw error;
     }
   }
