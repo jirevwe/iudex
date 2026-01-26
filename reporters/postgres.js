@@ -4,6 +4,9 @@
 import { DatabaseClient } from '../database/client.js';
 import { TestRepository } from '../database/repository.js';
 import { execSync } from 'child_process';
+import { getLogger } from '../core/logger.js';
+
+const logger = getLogger().child({ module: 'postgres-reporter' });
 
 export class PostgresReporter {
   constructor(config = {}) {
@@ -144,20 +147,20 @@ export class PostgresReporter {
         );
 
         if (deletedTests.length > 0) {
-          console.log(`\n🗑️  Deleted tests detected: ${deletedTests.length}`);
+          logger.info({ count: deletedTests.length, tests: deletedTests.map(t => ({ name: t.current_name, slug: t.test_slug })) }, `\n🗑️  Deleted tests detected: ${deletedTests.length}`);
           deletedTests.forEach(test => {
-            console.log(`   - ${test.current_name} (${test.test_slug})`);
+            logger.info(`   - ${test.current_name} (${test.test_slug})`);
           });
         }
       }
 
-      console.log(`\n✓ Test results persisted to database (run_id: ${runId})`);
+      logger.info({ runId }, `\n✓ Test results persisted to database (run_id: ${runId})`);
 
       // Show analytics if available
       await this.showAnalytics();
 
     } catch (error) {
-      console.error('\n✗ Failed to persist results to database:', error.message);
+      logger.error({ error: error.message, stack: error.stack }, '\n✗ Failed to persist results to database');
       if (this.config.throwOnError) {
         throw error;
       }
@@ -176,18 +179,18 @@ export class PostgresReporter {
       // Get flaky tests
       const flakyTests = await this.repository.getFlakyTests(5);
       if (flakyTests.length > 0) {
-        console.log(`\n⚠️  Flaky tests detected: ${flakyTests.length}`);
+        logger.info({ count: flakyTests.length }, `\n⚠️  Flaky tests detected: ${flakyTests.length}`);
         flakyTests.slice(0, 3).forEach(test => {
-          console.log(`   - ${test.current_name} (${test.failure_rate}% failure rate)`);
+          logger.info(`   - ${test.current_name} (${test.failure_rate}% failure rate)`);
         });
       }
 
       // Get regressions
       const regressions = await this.repository.getRecentRegressions();
       if (regressions.length > 0) {
-        console.log(`\n🔴 Recent regressions: ${regressions.length}`);
+        logger.info({ count: regressions.length }, `\n🔴 Recent regressions: ${regressions.length}`);
         regressions.slice(0, 3).forEach(test => {
-          console.log(`   - ${test.current_name} (${test.endpoint || 'N/A'})`);
+          logger.info(`   - ${test.current_name} (${test.endpoint || 'N/A'})`);
         });
       }
 
@@ -195,19 +198,19 @@ export class PostgresReporter {
       const healthScores = await this.repository.getTestHealthScores(5);
       const unhealthy = healthScores.filter(t => t.overall_health_score < 70);
       if (unhealthy.length > 0) {
-        console.log(`\n⚕️  Unhealthy tests (score < 70): ${unhealthy.length}`);
+        logger.info({ count: unhealthy.length }, `\n⚕️  Unhealthy tests (score < 70): ${unhealthy.length}`);
         unhealthy.slice(0, 3).forEach(test => {
-          console.log(`   - ${test.current_name} (score: ${test.overall_health_score})`);
+          logger.info(`   - ${test.current_name} (score: ${test.overall_health_score})`);
         });
       }
 
       // Get recently deleted tests
       const deletedTests = await this.repository.getDeletedTests(5);
       if (deletedTests.length > 0) {
-        console.log(`\n🗑️  Recently deleted tests: ${deletedTests.length}`);
+        logger.info({ count: deletedTests.length }, `\n🗑️  Recently deleted tests: ${deletedTests.length}`);
         deletedTests.slice(0, 3).forEach(test => {
           const lastSeenDate = new Date(test.last_seen_at).toLocaleDateString();
-          console.log(`   - ${test.current_name} (last seen: ${lastSeenDate})`);
+          logger.info(`   - ${test.current_name} (last seen: ${lastSeenDate})`);
         });
       }
 
