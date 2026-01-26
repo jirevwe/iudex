@@ -120,6 +120,37 @@ export class PostgresReporter {
         await this.repository.createTestResult(runId, testData);
       }
 
+      // Track deletion: collect current test slugs and suite names
+      const currentTestSlugs = testResults
+        .map(r => r.testId)
+        .filter(slug => slug != null);
+
+      // Collect suite names from both test results AND the suites list
+      // This ensures we include suites that were executed but have no tests
+      const results = collector.getResults();
+      const allSuites = results.suites || [];
+      const suiteNamesFromTests = testResults
+        .map(r => r.suite || metadata.suiteName)
+        .filter(suite => suite != null);
+      const suiteNamesFromSuites = allSuites.map(s => s.name).filter(name => name != null);
+      const suiteNames = [...new Set([...suiteNamesFromTests, ...suiteNamesFromSuites])];
+
+      // Mark tests as deleted if they didn't appear in this run
+      if (suiteNames.length > 0) {
+        const deletedTests = await this.repository.markDeletedTests(
+          runId,
+          currentTestSlugs,
+          suiteNames
+        );
+
+        if (deletedTests.length > 0) {
+          console.log(`\n🗑️  Deleted tests detected: ${deletedTests.length}`);
+          deletedTests.forEach(test => {
+            console.log(`   - ${test.current_name} (${test.test_slug})`);
+          });
+        }
+      }
+
       console.log(`\n✓ Test results persisted to database (run_id: ${runId})`);
 
       // Show analytics if available
@@ -170,6 +201,16 @@ export class PostgresReporter {
         });
       }
 
+      // Get recently deleted tests
+      const deletedTests = await this.repository.getDeletedTests(5);
+      if (deletedTests.length > 0) {
+        console.log(`\n🗑️  Recently deleted tests: ${deletedTests.length}`);
+        deletedTests.slice(0, 3).forEach(test => {
+          const lastSeenDate = new Date(test.last_seen_at).toLocaleDateString();
+          console.log(`   - ${test.current_name} (last seen: ${lastSeenDate})`);
+        });
+      }
+
     } catch (error) {
       // Silently fail analytics - don't block main reporting
     }
@@ -207,6 +248,9 @@ export class PostgresReporter {
 
         case 'daily_stats':
           return await this.repository.getDailyStats(options.days);
+
+        case 'deleted_tests':
+          return await this.repository.getDeletedTests(options.limit || 10);
 
         case 'search':
           if (!options.searchTerm) {
