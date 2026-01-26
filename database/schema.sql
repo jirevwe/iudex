@@ -15,7 +15,7 @@ DROP TABLE IF EXISTS test_runs CASCADE;
 DROP TABLE IF EXISTS test_suites CASCADE;
 
 -- Test Suites (Collections/Modules)
-CREATE TABLE test_suites (
+CREATE TABLE IF NOT EXISTS test_suites (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
@@ -24,7 +24,7 @@ CREATE TABLE test_suites (
 );
 
 -- Test Runs (Each execution of tests)
-CREATE TABLE test_runs (
+CREATE TABLE IF NOT EXISTS test_runs (
     id SERIAL PRIMARY KEY,
     suite_id INTEGER REFERENCES test_suites(id),
     environment VARCHAR(50) NOT NULL, -- dev, staging, prod
@@ -49,7 +49,7 @@ CREATE TABLE test_runs (
 
 -- Tests (Unique test definitions tracked by slug)
 -- This table tracks the IDENTITY of tests allowing names to change
-CREATE TABLE tests (
+CREATE TABLE IF NOT EXISTS tests (
     id SERIAL PRIMARY KEY,
     test_hash VARCHAR(64) NOT NULL, -- SHA256(name + description) - for skip detection
     test_slug VARCHAR(512) NOT NULL, -- Human-readable ID (e.g., 'saas.users.onboarding.accept_terms')
@@ -75,7 +75,7 @@ CREATE TABLE tests (
 
 -- Test History (Tracks all name/description changes)
 -- This gives us a complete audit trail of test evolution
-CREATE TABLE test_history (
+CREATE TABLE IF NOT EXISTS  test_history (
     id SERIAL PRIMARY KEY,
     test_id INTEGER NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
     name VARCHAR(512) NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE test_history (
 
 -- Test Results (Individual test execution results - IMMUTABLE LOG)
 -- Every test run creates a new row - we NEVER update test results
-CREATE TABLE test_results (
+CREATE TABLE IF NOT EXISTS  test_results (
     id SERIAL PRIMARY KEY,
     run_id INTEGER NOT NULL REFERENCES test_runs(id) ON DELETE CASCADE,
     test_id INTEGER NOT NULL REFERENCES tests(id), -- Links to test identity
@@ -124,28 +124,28 @@ CREATE TABLE test_results (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_test_runs_environment ON test_runs(environment);
-CREATE INDEX idx_test_runs_branch ON test_runs(branch);
-CREATE INDEX idx_test_runs_status ON test_runs(status);
-CREATE INDEX idx_test_runs_started_at ON test_runs(started_at DESC);
-CREATE INDEX idx_test_runs_suite_id ON test_runs(suite_id);
+CREATE INDEX IF NOT EXISTS idx_test_runs_environment ON test_runs(environment);
+CREATE INDEX IF NOT EXISTS idx_test_runs_branch ON test_runs(branch);
+CREATE INDEX IF NOT EXISTS idx_test_runs_status ON test_runs(status);
+CREATE INDEX IF NOT EXISTS idx_test_runs_started_at ON test_runs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_test_runs_suite_id ON test_runs(suite_id);
 
-CREATE INDEX idx_tests_hash ON tests(test_hash);
-CREATE INDEX idx_tests_slug ON tests(test_slug);
-CREATE INDEX idx_tests_current_name ON tests(current_name);
-CREATE INDEX idx_tests_suite_name ON tests(suite_name);
-CREATE INDEX idx_tests_endpoint ON tests(endpoint);
-CREATE INDEX idx_tests_last_seen ON tests(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tests_hash ON tests(test_hash);
+CREATE INDEX IF NOT EXISTS idx_tests_slug ON tests(test_slug);
+CREATE INDEX IF NOT EXISTS idx_tests_current_name ON tests(current_name);
+CREATE INDEX IF NOT EXISTS idx_tests_suite_name ON tests(suite_name);
+CREATE INDEX IF NOT EXISTS idx_tests_endpoint ON tests(endpoint);
+CREATE INDEX IF NOT EXISTS idx_tests_last_seen ON tests(last_seen_at DESC);
 
-CREATE INDEX idx_test_history_test_id ON test_history(test_id);
-CREATE INDEX idx_test_history_valid_range ON test_history(valid_from, valid_to);
+CREATE INDEX IF NOT EXISTS idx_test_history_test_id ON test_history(test_id);
+CREATE INDEX IF NOT EXISTS idx_test_history_valid_range ON test_history(valid_from, valid_to);
 
-CREATE INDEX idx_test_results_run_id ON test_results(run_id);
-CREATE INDEX idx_test_results_test_id ON test_results(test_id);
-CREATE INDEX idx_test_results_test_hash ON test_results(test_hash);
-CREATE INDEX idx_test_results_status ON test_results(status);
-CREATE INDEX idx_test_results_endpoint ON test_results(endpoint);
-CREATE INDEX idx_test_results_created_at ON test_results(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_test_results_run_id ON test_results(run_id);
+CREATE INDEX IF NOT EXISTS idx_test_results_test_id ON test_results(test_id);
+CREATE INDEX IF NOT EXISTS idx_test_results_test_hash ON test_results(test_hash);
+CREATE INDEX IF NOT EXISTS idx_test_results_status ON test_results(status);
+CREATE INDEX IF NOT EXISTS idx_test_results_endpoint ON test_results(endpoint);
+CREATE INDEX IF NOT EXISTS idx_test_results_created_at ON test_results(created_at DESC);
 
 -- Trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
