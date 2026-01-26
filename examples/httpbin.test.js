@@ -1,15 +1,12 @@
 import {describe, test, expect, beforeEach, afterEach} from '../core/dsl.js';
 
-describe('HTTPBin Basic Tests', {prefix: 'saas.ui'}, () => {
-
+describe('Removal Tests', {prefix: 'saas.ui'}, () => {
     test('should display welcome message', async (context) => {
         expect(true).toBe(true);
     })
-
 })
-import {describe, test, expect, beforeEach} from '../core/dsl.js';
 
-describe('HTTPBin API Examples', {prefix: 'saas.api'}, () => {
+describe('HTTPBin API E"xamples', {prefix: 'saas.api'}, () => {
     let baseUrl;
 
     beforeEach(async (context) => {
