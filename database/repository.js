@@ -346,4 +346,73 @@ export class TestRepository {
     );
     return result.rows;
   }
+
+  /**
+   * Mark tests as deleted if they didn't appear in the current run
+   * @param {number} runId - Current test run ID
+   * @param {Array<string>} currentTestSlugs - Test slugs that ran in this run
+   * @param {Array<string>} suiteNames - Suite names that were executed
+   * @returns {Array} Deleted tests
+   */
+  async markDeletedTests(runId, currentTestSlugs, suiteNames) {
+    // Handle empty currentTestSlugs case
+    if (currentTestSlugs.length === 0) {
+      // If no tests ran, mark all tests in the suite as deleted
+      const result = await this.db.query(
+        `UPDATE tests
+         SET deleted_at = CURRENT_TIMESTAMP
+         WHERE suite_name = ANY($1)
+           AND deleted_at IS NULL
+           AND last_seen_at < (
+             SELECT started_at FROM test_runs WHERE id = $2
+           )
+         RETURNING id, test_slug, current_name, suite_name`,
+        [suiteNames, runId]
+      );
+      return result.rows;
+    }
+
+    // Build the NOT IN clause with placeholders
+    const placeholders = currentTestSlugs.map((_, i) => `$${i + 2}`).join(',');
+    const params = [suiteNames, ...currentTestSlugs, runId];
+
+    const result = await this.db.query(
+      `UPDATE tests
+       SET deleted_at = CURRENT_TIMESTAMP
+       WHERE suite_name = ANY($1)
+         AND test_slug NOT IN (${placeholders})
+         AND deleted_at IS NULL
+         AND last_seen_at < (
+           SELECT started_at FROM test_runs WHERE id = $${currentTestSlugs.length + 2}
+         )
+       RETURNING id, test_slug, current_name, suite_name`,
+      params
+    );
+
+    return result.rows;
+  }
+
+  /**
+   * Get tests that were marked as deleted
+   * @param {number} limit - Maximum number of results
+   * @returns {Array} Deleted tests
+   */
+  async getDeletedTests(limit = 10) {
+    const result = await this.db.query(
+      `SELECT
+        id,
+        test_slug,
+        current_name,
+        suite_name,
+        last_seen_at,
+        deleted_at,
+        total_runs
+       FROM tests
+       WHERE deleted_at IS NOT NULL
+       ORDER BY deleted_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return result.rows;
+  }
 }
