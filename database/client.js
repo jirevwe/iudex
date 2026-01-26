@@ -241,7 +241,7 @@ export class DatabaseClient {
   }
 
   /**
-   * Get pool statistics
+   * Get pool statistics and transaction metrics
    * @returns {Object}
    */
   getPoolStats() {
@@ -250,10 +250,43 @@ export class DatabaseClient {
     }
 
     return {
-      total: this.pool.totalCount,
-      idle: this.pool.idleCount,
-      waiting: this.pool.waitingCount
+      pool: {
+        total: this.pool.totalCount,
+        idle: this.pool.idleCount,
+        waiting: this.pool.waitingCount
+      },
+      transactions: {
+        total: this.metrics.transactionCount,
+        rollbacks: this.metrics.rollbackCount,
+        retries: this.metrics.retryCount,
+        constraintViolations: this.metrics.constraintViolationCount,
+        deadlocks: this.metrics.deadlockCount
+      }
     };
+  }
+
+  /**
+   * Reset transaction metrics
+   */
+  resetMetrics() {
+    this.metrics = {
+      transactionCount: 0,
+      rollbackCount: 0,
+      retryCount: 0,
+      constraintViolationCount: 0,
+      deadlockCount: 0
+    };
+  }
+
+  /**
+   * Log current transaction metrics
+   */
+  logMetrics() {
+    const stats = this.getPoolStats();
+    logger.info({
+      pool: stats.pool,
+      transactions: stats.transactions
+    }, 'Database connection pool and transaction metrics');
   }
 
   /**
