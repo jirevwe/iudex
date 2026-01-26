@@ -168,7 +168,8 @@ describe('PostgresReporter', () => {
       mockRepository = {
         getFlakyTests: jest.fn().mockResolvedValue([]),
         getRecentRegressions: jest.fn().mockResolvedValue([]),
-        getTestHealthScores: jest.fn().mockResolvedValue([])
+        getTestHealthScores: jest.fn().mockResolvedValue([]),
+        getDeletedTests: jest.fn().mockResolvedValue([])
       };
       reporter.repository = mockRepository;
     });
@@ -262,6 +263,62 @@ describe('PostgresReporter', () => {
 
       consoleSpy.mockRestore();
     });
+
+    test('should display deleted tests when found', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      mockRepository.getDeletedTests.mockResolvedValue([
+        {
+          current_name: 'Deleted Test 1',
+          last_seen_at: new Date('2026-01-20T10:00:00Z')
+        },
+        {
+          current_name: 'Deleted Test 2',
+          last_seen_at: new Date('2026-01-19T10:00:00Z')
+        }
+      ]);
+
+      await reporter.showAnalytics();
+
+      expect(mockRepository.getDeletedTests).toHaveBeenCalledWith(5);
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Recently deleted tests: 2'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Deleted Test 1'));
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should not display deleted tests section when none found', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      mockRepository.getDeletedTests.mockResolvedValue([]);
+
+      await reporter.showAnalytics();
+
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('deleted tests'));
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should format deleted test timestamps correctly', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      mockRepository.getDeletedTests.mockResolvedValue([
+        {
+          current_name: 'Test with date',
+          last_seen_at: new Date('2026-01-26T10:00:00Z')
+        }
+      ]);
+
+      await reporter.showAnalytics();
+
+      const calls = consoleSpy.mock.calls.map(call => call[0]);
+      const dateCall = calls.find(call => call && call.includes('last seen:'));
+
+      expect(dateCall).toBeDefined();
+      expect(dateCall).toMatch(/last seen: \d{1,2}\/\d{1,2}\/\d{4}/);
+
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('getAnalytics()', () => {
@@ -297,6 +354,40 @@ describe('PostgresReporter', () => {
       await expect(reporter.getAnalytics('unknown_type')).rejects.toThrow(
         'Unknown analytics query type: unknown_type'
       );
+    });
+
+    test('should support deleted_tests query type', async () => {
+      const mockDbClient = { connect: jest.fn(), close: jest.fn() };
+      const mockRepo = {
+        getDeletedTests: jest.fn().mockResolvedValue([
+          { test_slug: 'test.deleted1', current_name: 'Deleted Test' }
+        ])
+      };
+
+      jest.spyOn(reporter, 'initialize').mockResolvedValue();
+      reporter.dbClient = mockDbClient;
+      reporter.repository = mockRepo;
+
+      const result = await reporter.getAnalytics('deleted_tests', { limit: 10 });
+
+      expect(mockRepo.getDeletedTests).toHaveBeenCalledWith(10);
+      expect(result).toHaveLength(1);
+      expect(result[0].test_slug).toBe('test.deleted1');
+    });
+
+    test('should use default limit for deleted_tests when not specified', async () => {
+      const mockDbClient = { connect: jest.fn(), close: jest.fn() };
+      const mockRepo = {
+        getDeletedTests: jest.fn().mockResolvedValue([])
+      };
+
+      jest.spyOn(reporter, 'initialize').mockResolvedValue();
+      reporter.dbClient = mockDbClient;
+      reporter.repository = mockRepo;
+
+      await reporter.getAnalytics('deleted_tests', {});
+
+      expect(mockRepo.getDeletedTests).toHaveBeenCalledWith(10);
     });
   });
 
