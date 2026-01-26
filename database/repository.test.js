@@ -7,9 +7,13 @@ describe('TestRepository - Deletion Detection & Suite Tracking', () => {
   let mockDb;
 
   beforeEach(() => {
-    // Mock database client
+    // Mock database client with transaction support
     mockDb = {
-      query: jest.fn()
+      query: jest.fn(),
+      transaction: jest.fn(async (callback) => {
+        // Mock transaction: just execute the callback with the mockDb as the client
+        return await callback(mockDb);
+      })
     };
     repository = new TestRepository(mockDb);
   });
