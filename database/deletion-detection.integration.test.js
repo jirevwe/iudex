@@ -1,48 +1,74 @@
-// Integration tests for Deletion Detection
-// These tests require a PostgreSQL database to be running
-// Set TEST_DB_ENABLED=true to run these tests
+// Integration tests for Deletion Detection with Testcontainers
+// Uses PostgreSQL testcontainer - no manual setup required!
 
 import { jest } from '@jest/globals';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { DatabaseClient } from './client.js';
 import { TestRepository } from './repository.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const TEST_DB_ENABLED = process.env.TEST_DB_ENABLED === 'true';
-const describeIfEnabled = TEST_DB_ENABLED ? describe : describe.skip;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-describeIfEnabled('Deletion Detection - Integration Tests', () => {
+describe('Deletion Detection - Integration Tests', () => {
+  let container;
   let dbClient;
   let repository;
   let suiteId;
   let runId;
 
   beforeAll(async () => {
-    // Connect to test database
+    // Start PostgreSQL container
+    console.log('Starting PostgreSQL container...');
+    container = await new PostgreSqlContainer('postgres:15-alpine')
+      .withExposedPorts(5432)
+      .start();
+
+    console.log('PostgreSQL container started');
+
+    // Connect to the container
     dbClient = new DatabaseClient({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
-      database: process.env.DB_NAME || 'iudex_test',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD
+      host: container.getHost(),
+      port: container.getPort(),
+      database: container.getDatabase(),
+      user: container.getUsername(),
+      password: container.getPassword()
     });
 
     await dbClient.connect();
+    console.log('Connected to PostgreSQL container');
+
+    // Apply schema
+    const schemaPath = join(__dirname, 'schema.sql');
+    const schema = readFileSync(schemaPath, 'utf8');
+    await dbClient.query(schema);
+    console.log('Schema applied');
+
+    // Apply migration
+    const migrationPath = join(__dirname, 'migrations', '002_add_deleted_at.sql');
+    const migration = readFileSync(migrationPath, 'utf8');
+    await dbClient.query(migration);
+    console.log('Migration applied');
+
     repository = new TestRepository(dbClient);
 
     // Create a test suite
     suiteId = await repository.createOrGetSuite('Deletion Test Suite', 'Suite for testing deletion detection');
-  });
+  }, 120000); // 2 minute timeout for container startup
 
   afterAll(async () => {
-    // Clean up test data
+    // Clean up
     if (dbClient) {
-      await dbClient.query('DELETE FROM test_results WHERE run_id IN (SELECT id FROM test_runs WHERE suite_id = $1)', [suiteId]);
-      await dbClient.query('DELETE FROM test_history WHERE test_id IN (SELECT id FROM tests WHERE suite_name = $1)', ['Deletion Test Suite']);
-      await dbClient.query('DELETE FROM tests WHERE suite_name = $1', ['Deletion Test Suite']);
-      await dbClient.query('DELETE FROM test_runs WHERE suite_id = $1', [suiteId]);
-      await dbClient.query('DELETE FROM test_suites WHERE id = $1', [suiteId]);
       await dbClient.close();
     }
-  });
+    if (container) {
+      console.log('Stopping PostgreSQL container...');
+      await container.stop();
+      console.log('PostgreSQL container stopped');
+    }
+  }, 60000); // 1 minute timeout for cleanup
 
   beforeEach(async () => {
     // Create a test run for each test
@@ -62,6 +88,13 @@ describeIfEnabled('Deletion Detection - Integration Tests', () => {
       triggeredBy: 'test',
       runUrl: null
     });
+  });
+
+  afterEach(async () => {
+    // Clean up test data after each test for isolation
+    await dbClient.query('DELETE FROM test_results WHERE run_id = $1', [runId]);
+    await dbClient.query('DELETE FROM test_history WHERE test_id IN (SELECT id FROM tests WHERE suite_name LIKE $1)', ['%Test%']);
+    await dbClient.query('DELETE FROM tests WHERE suite_name LIKE $1', ['%Test%']);
   });
 
   describe('Basic Deletion Detection', () => {
