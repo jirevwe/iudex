@@ -206,9 +206,23 @@ export class Expect {
         return this;
     }
 
+    toBeGreaterThan(expected) {
+        if (this.value <= expected) {
+            throw new Error(`Expected ${this.value} to be greater than ${expected}`);
+        }
+        return this;
+    }
+
     toBeGreaterThanOrEqual(expected) {
         if (this.value < expected) {
             throw new Error(`Expected ${this.value} to be greater than or equal to ${expected}`);
+        }
+        return this;
+    }
+
+    toBeLessThanOrEqual(expected) {
+        if (this.value > expected) {
+            throw new Error(`Expected ${this.value} to be less than or equal to ${expected}`);
         }
         return this;
     }
