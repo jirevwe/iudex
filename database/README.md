@@ -374,6 +374,82 @@ jobs:
         run: npm test
 ```
 
+## Testing
+
+This directory contains comprehensive tests for the database layer, including deletion detection and suite tracking functionality.
+
+### Test Structure
+
+#### Unit Tests (`repository.test.js`)
+- Tests deletion detection logic (`markDeletedTests`)
+- Tests retrieval of deleted tests (`getDeletedTests`)
+- Tests suite tracking and resurrection in `findOrCreateTest`
+- All tests use mocked database connections
+
+Run unit tests:
+```bash
+npm test database/repository.test.js
+```
+
+#### Integration Tests (`deletion-detection.integration.test.js`)
+- Tests full deletion detection workflow with real database
+- Tests test resurrection (deleted tests reappearing)
+- Tests suite isolation (only marking tests from executed suites as deleted)
+- Tests suite tracking (updating suite_name when tests move between suites)
+
+**Prerequisites:**
+1. PostgreSQL must be running
+2. Create test database: `createdb iudex_test`
+3. Run schema: `psql -d iudex_test -f database/schema.sql`
+
+**Run integration tests:**
+```bash
+TEST_DB_ENABLED=true DB_NAME=iudex_test npm test database/deletion-detection.integration.test.js
+```
+
+### Test Coverage
+
+The tests ensure protection against regressions for:
+
+**Deletion Detection:**
+- ✅ Tests marked as deleted when they don't appear in a run
+- ✅ Tests NOT marked as deleted if they appear in current run
+- ✅ Only tests from executed suites are checked for deletion
+- ✅ Already deleted tests are not marked again
+
+**Test Resurrection:**
+- ✅ `deleted_at` cleared when test reappears
+- ✅ Test becomes active again after resurrection
+
+**Suite Tracking:**
+- ✅ `suite_name` updated when test moves between suites
+- ✅ `test_file` updated when test moves between files
+- ✅ Tests moved to different suite are not marked as deleted from old suite
+
+**Suite Isolation:**
+- ✅ Only tests in executed suites are checked for deletion
+- ✅ Tests in non-executed suites remain untouched
+
+### Continuous Integration
+
+Example GitHub Actions configuration for integration tests:
+
+```yaml
+- name: Setup PostgreSQL
+  run: |
+    sudo systemctl start postgresql
+    sudo -u postgres createdb iudex_test
+    sudo -u postgres psql -d iudex_test -f database/schema.sql
+
+- name: Run all tests
+  env:
+    TEST_DB_ENABLED: true
+    DB_HOST: localhost
+    DB_NAME: iudex_test
+    DB_USER: postgres
+  run: npm test
+```
+
 ## Support
 
 For issues, see:
