@@ -110,20 +110,22 @@ export class TestRepository {
     if (result.rows.length > 0) {
       const testId = result.rows[0].id;
 
-      // Update test metadata (name/description may have changed)
+      // Update test metadata (name/description/suite/file may have changed)
       // Also clear deleted_at if test was previously marked as deleted (resurrection)
       await this.db.query(
         `UPDATE tests
          SET current_name = $1,
              current_description = $2,
              test_hash = $3,
+             suite_name = $4,
+             test_file = $5,
              last_seen_at = CURRENT_TIMESTAMP,
              total_runs = total_runs + 1,
-             endpoint = COALESCE($4, endpoint),
-             http_method = COALESCE($5, http_method),
+             endpoint = COALESCE($6, endpoint),
+             http_method = COALESCE($7, http_method),
              deleted_at = NULL
-         WHERE id = $6`,
-        [name, description, testHash, endpoint, httpMethod, testId]
+         WHERE id = $8`,
+        [name, description, testHash, suiteName, testFile, endpoint, httpMethod, testId]
       );
 
       // Record name/description change in history if hash changed
