@@ -1,0 +1,24 @@
+# Iudex Framework - Tool Version Management
+# https://mise.jdx.dev/
+
+[tools]
+node = "22.21.0"
+postgres = "18"
+
+[env]
+# PostgreSQL connection settings
+DB_ENABLED = "true"
+DB_HOST = "localhost"
+DB_PORT = "5432"
+DB_NAME = "iudex"
+DB_USER = "iudex_user"
+# DB_PASSWORD = "your_password_here"  # Uncomment and set, or use: export DB_PASSWORD=yourpass
+DB_SSL = "false"
+DB_POOL_SIZE = "10"
+
+# Node environment
+NODE_ENV = "development"
+
+# All tasks are defined in .mise-tasks/ directory
+# This allows for better organization, version control, and reusability
+# Run 'mise tasks' to see all available tasks
