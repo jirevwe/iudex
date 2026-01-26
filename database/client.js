@@ -21,8 +21,26 @@ export class DatabaseClient {
       connectionTimeoutMillis: config.connectionTimeout || 2000,
     };
 
+    // Retry configuration
+    this.retryConfig = {
+      maxRetries: config.maxRetries || 3,
+      baseDelay: config.retryBaseDelay || 100, // ms
+      maxDelay: config.retryMaxDelay || 2000, // ms
+      retryOnConstraintViolation: config.retryOnConstraintViolation !== false,
+      retryOnDeadlock: config.retryOnDeadlock !== false
+    };
+
     this.pool = null;
     this.isConnected = false;
+
+    // Metrics for monitoring
+    this.metrics = {
+      transactionCount: 0,
+      rollbackCount: 0,
+      retryCount: 0,
+      constraintViolationCount: 0,
+      deadlockCount: 0
+    };
   }
 
   /**
