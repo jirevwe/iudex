@@ -111,6 +111,7 @@ export class TestRepository {
       const testId = result.rows[0].id;
 
       // Update test metadata (name/description may have changed)
+      // Also clear deleted_at if test was previously marked as deleted (resurrection)
       await this.db.query(
         `UPDATE tests
          SET current_name = $1,
@@ -119,7 +120,8 @@ export class TestRepository {
              last_seen_at = CURRENT_TIMESTAMP,
              total_runs = total_runs + 1,
              endpoint = COALESCE($4, endpoint),
-             http_method = COALESCE($5, http_method)
+             http_method = COALESCE($5, http_method),
+             deleted_at = NULL
          WHERE id = $6`,
         [name, description, testHash, endpoint, httpMethod, testId]
       );
