@@ -257,6 +257,68 @@ export class DatabaseClient {
   }
 
   /**
+   * Create a savepoint within a transaction
+   * Savepoints allow partial rollback within a transaction
+   * @param {Object} client - Transaction client
+   * @param {string} name - Savepoint name
+   */
+  async savepoint(client, name) {
+    const safeName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+    await client.query(`SAVEPOINT ${safeName}`);
+    logger.debug({ savepoint: safeName }, 'Created savepoint');
+  }
+
+  /**
+   * Rollback to a savepoint
+   * @param {Object} client - Transaction client
+   * @param {string} name - Savepoint name
+   */
+  async rollbackToSavepoint(client, name) {
+    const safeName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+    await client.query(`ROLLBACK TO SAVEPOINT ${safeName}`);
+    logger.debug({ savepoint: safeName }, 'Rolled back to savepoint');
+  }
+
+  /**
+   * Release a savepoint (frees resources)
+   * @param {Object} client - Transaction client
+   * @param {string} name - Savepoint name
+   */
+  async releaseSavepoint(client, name) {
+    const safeName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+    await client.query(`RELEASE SAVEPOINT ${safeName}`);
+    logger.debug({ savepoint: safeName }, 'Released savepoint');
+  }
+
+  /**
+   * Execute a block of code with automatic savepoint management
+   * If the block fails, rolls back to the savepoint
+   * If it succeeds, releases the savepoint
+   * @param {Object} client - Transaction client
+   * @param {string} name - Savepoint name
+   * @param {Function} callback - Async function to execute
+   * @returns {Object} {success: boolean, result: any, error: Error}
+   */
+  async withSavepoint(client, name, callback) {
+    const safeName = name.replace(/[^a-zA-Z0-9_]/g, '_');
+
+    await this.savepoint(client, safeName);
+
+    try {
+      const result = await callback(client);
+      await this.releaseSavepoint(client, safeName);
+      return { success: true, result, error: null };
+    } catch (error) {
+      await this.rollbackToSavepoint(client, safeName);
+      logger.warn({
+        savepoint: safeName,
+        error: error.message
+      }, 'Savepoint rolled back due to error');
+      return { success: false, result: null, error };
+    }
+  }
+
+  /**
    * Close the connection pool
    */
   async close() {
