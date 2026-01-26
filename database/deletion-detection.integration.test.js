@@ -8,6 +8,9 @@ import { TestRepository } from './repository.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createLogger } from '../core/logger.js';
+
+const logger = createLogger({ level: 'warn', name: 'integration-test' });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,12 +24,12 @@ describe('Deletion Detection - Integration Tests', () => {
 
   beforeAll(async () => {
     // Start PostgreSQL container
-    console.log('Starting PostgreSQL container...');
+    logger.debug('Starting PostgreSQL container...');
     container = await new PostgreSqlContainer('postgres:15-alpine')
       .withExposedPorts(5432)
       .start();
 
-    console.log('PostgreSQL container started');
+    logger.debug('PostgreSQL container started');
 
     // Connect to the container
     dbClient = new DatabaseClient({
@@ -38,19 +41,19 @@ describe('Deletion Detection - Integration Tests', () => {
     });
 
     await dbClient.connect();
-    console.log('Connected to PostgreSQL container');
+    logger.debug('Connected to PostgreSQL container');
 
     // Apply schema
     const schemaPath = join(__dirname, 'schema.sql');
     const schema = readFileSync(schemaPath, 'utf8');
     await dbClient.query(schema);
-    console.log('Schema applied');
+    logger.debug('Schema applied');
 
     // Apply migration
     const migrationPath = join(__dirname, 'migrations', '002_add_deleted_at.sql');
     const migration = readFileSync(migrationPath, 'utf8');
     await dbClient.query(migration);
-    console.log('Migration applied');
+    logger.debug('Migration applied');
 
     repository = new TestRepository(dbClient);
 
@@ -64,9 +67,9 @@ describe('Deletion Detection - Integration Tests', () => {
       await dbClient.close();
     }
     if (container) {
-      console.log('Stopping PostgreSQL container...');
+      logger.debug('Stopping PostgreSQL container...');
       await container.stop();
-      console.log('PostgreSQL container stopped');
+      logger.debug('PostgreSQL container stopped');
     }
   }, 60000); // 1 minute timeout for cleanup
 
