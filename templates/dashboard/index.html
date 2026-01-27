@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iudex Test Dashboard</title>
+  <base href="{{BASE_URL}}/">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-content">
+        <h1 class="dashboard-title">Iudex Test Dashboard</h1>
+        <div class="header-controls">
+          <select id="run-selector" class="run-selector">
+            <option value="">Loading runs...</option>
+          </select>
+          <button id="refresh-btn" class="btn-icon" title="Refresh">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading dashboard...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="error-state" style="display: none;">
+      <div class="error-icon">⚠️</div>
+      <h2>Failed to Load Dashboard</h2>
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn-primary">Retry</button>
+    </div>
+
+    <!-- Main Content -->
+    <main id="dashboard-content" class="dashboard-content" style="display: none;">
+      <!-- Summary Cards -->
+      <section class="summary-section">
+        <div class="summary-card total">
+          <div class="card-icon">📊</div>
+          <div class="card-content">
+            <div class="card-value" id="summary-total">0</div>
+            <div class="card-label">Total Tests</div>
+          </div>
+        </div>
+
+        <div class="summary-card passed">
+          <div class="card-icon">✅</div>
+          <div class="card-content">
+            <div class="card-value" id="summary-passed">0</div>
+            <div class="card-label">Passed</div>
+          </div>
+        </div>
+
+        <div class="summary-card failed">
+          <div class="card-icon">❌</div>
+          <div class="card-content">
+            <div class="card-value" id="summary-failed">0</div>
+            <div class="card-label">Failed</div>
+          </div>
+        </div>
+
+        <div class="summary-card skipped">
+          <div class="card-icon">⏭️</div>
+          <div class="card-content">
+            <div class="card-value" id="summary-skipped">0</div>
+            <div class="card-label">Skipped</div>
+          </div>
+        </div>
+
+        <div class="summary-card duration">
+          <div class="card-icon">⏱️</div>
+          <div class="card-content">
+            <div class="card-value" id="summary-duration">0s</div>
+            <div class="card-label">Duration</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Git Info -->
+      <section id="git-info-section" class="git-info-section" style="display: none;">
+        <div class="git-info-card">
+          <div class="git-info-item">
+            <span class="git-label">Branch:</span>
+            <span id="git-branch" class="git-value"></span>
+          </div>
+          <div class="git-info-item">
+            <span class="git-label">Commit:</span>
+            <span id="git-commit" class="git-value"></span>
+          </div>
+          <div class="git-info-item">
+            <span class="git-label">Message:</span>
+            <span id="git-message" class="git-value"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabs -->
+      <section class="tabs-section">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="tests">Test Results</button>
+          <button class="tab-btn" data-tab="governance">
+            Governance
+            <span id="governance-badge" class="tab-badge">0</span>
+          </button>
+          <button class="tab-btn" data-tab="security">
+            Security
+            <span id="security-badge" class="tab-badge">0</span>
+          </button>
+        </div>
+
+        <!-- Tab Panels -->
+        <div class="tab-panels">
+          <!-- Tests Tab -->
+          <div id="tab-tests" class="tab-panel active">
+            <div class="panel-header">
+              <h2>Test Results</h2>
+              <div class="panel-controls">
+                <input
+                  type="search"
+                  id="test-search"
+                  class="search-input"
+                  placeholder="Search tests..."
+                />
+                <select id="test-filter" class="filter-select">
+                  <option value="all">All Tests</option>
+                  <option value="failed">Failed Only</option>
+                  <option value="passed">Passed Only</option>
+                  <option value="skipped">Skipped Only</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="test-table-container" class="table-container">
+              <table class="test-table">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Test Name</th>
+                    <th>Suite</th>
+                    <th>Duration</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="test-table-body">
+                  <!-- Populated by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Governance Tab -->
+          <div id="tab-governance" class="tab-panel">
+            <div class="panel-header">
+              <h2>Governance Violations</h2>
+              <select id="governance-filter" class="filter-select">
+                <option value="all">All Issues</option>
+                <option value="violation">Violations Only</option>
+                <option value="warning">Warnings Only</option>
+              </select>
+            </div>
+
+            <div id="governance-panel-container" class="governance-container">
+              <!-- Populated by JavaScript -->
+            </div>
+          </div>
+
+          <!-- Security Tab -->
+          <div id="tab-security" class="tab-panel">
+            <div class="panel-header">
+              <h2>Security Findings</h2>
+              <select id="security-filter" class="filter-select">
+                <option value="all">All Findings</option>
+                <option value="critical">Critical Only</option>
+                <option value="high">High Only</option>
+                <option value="medium">Medium Only</option>
+                <option value="low">Low Only</option>
+              </select>
+            </div>
+
+            <div id="security-panel-container" class="security-container">
+              <!-- Populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Load JavaScript modules -->
+  <script type="module" src="assets/js/data-loader.js"></script>
+  <script type="module" src="assets/js/components/summary-cards.js"></script>
+  <script type="module" src="assets/js/components/test-table.js"></script>
+  <script type="module" src="assets/js/components/governance-panel.js"></script>
+  <script type="module" src="assets/js/components/security-panel.js"></script>
+  <script type="module" src="assets/js/dashboard.js"></script>
+</body>
+</html>
