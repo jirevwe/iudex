@@ -30,9 +30,13 @@ async function fastifyDashboardPlugin(fastify, opts) {
 
   // Helper to convert Node.js req/res to Fastify-compatible format
   const handleRequest = async (request, reply) => {
+    // Construct full URL path for the dashboard server
+    // Since we're in a prefixed context, request.url is relative to the prefix
+    const fullUrl = `${basePath}${request.url}`.replace('//', '/');
+
     // Create a minimal req object that DashboardServer expects
     const req = {
-      url: request.url,
+      url: fullUrl,
       method: request.method,
       headers: request.headers
     };
@@ -56,14 +60,14 @@ async function fastifyDashboardPlugin(fastify, opts) {
     await dashboard.handleRequest(req, res);
   };
 
-  // Register catch-all route
-  fastify.get('/*', handleRequest);
+  // Register routes to handle all paths under this prefix
+  // Need both / and /* to catch root and nested paths
+  fastify.all('/', handleRequest);
+  fastify.all('/*', handleRequest);
 }
 
 /**
- * Export as fastify-plugin to ensure proper encapsulation
+ * Export the plugin function directly (without fp wrapper) to maintain encapsulation
+ * This ensures routes are properly scoped within the prefix
  */
-export const createFastifyDashboard = fp(fastifyDashboardPlugin, {
-  name: 'iudex-dashboard',
-  fastify: '>=4.0.0'
-});
+export const createFastifyDashboard = fastifyDashboardPlugin;
