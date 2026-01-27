@@ -57,17 +57,14 @@ program
             }
 
             // Initialize components
-            const collector = new ResultCollector();
             const runner = new TestRunner(config);
 
             // Initialize reporters from config
             const reporters = await loadReporters(config, options);
 
-            // Run tests
-            collector.start();
+            // Run tests (runner has its own collector with governance/security results)
             const results = await runner.run();
-            collector.addResults(results);
-            collector.end();
+            const collector = runner.getCollector();
 
             // Report results to all reporters
             for (const reporter of reporters) {
@@ -80,9 +77,15 @@ program
                 }
             }
 
-            // Exit with the appropriate error code
-            process.exit(collector.hasFailures() ? 1 : 0);
+            // Check thresholds (governance and security)
+            const thresholdsPassed = checkThresholds(collector, config);
 
+            // Exit with the appropriate error code
+            if (!thresholdsPassed) {
+                process.exit(1);
+            }
+
+            process.exit(collector.hasFailures() ? 1 : 0);
         } catch (error) {
             logger.error({
                 error: error.message,
@@ -267,6 +270,105 @@ async function loadTestFiles(patterns) {
     }
 
     return [...new Set(files)]; // Remove duplicates
+}
+
+/**
+ * Check governance and security thresholds
+ * @returns {boolean} - true if thresholds passed, false if exceeded
+ */
+function checkThresholds(collector, config) {
+    const thresholds = config.thresholds || {};
+    const results = collector.getResults();
+
+    let failed = false;
+
+    // Check governance violations
+    if (thresholds.governanceViolations) {
+        const violations = results.governance.violations || [];
+        const warnings = results.governance.warnings || [];
+
+        const errorCount = violations.filter(v => v.severity === 'error').length;
+        const warningCount = violations.filter(v => v.severity === 'warning').length +
+                            warnings.filter(w => w.severity === 'warning').length;
+
+        const errorThreshold = thresholds.governanceViolations.error;
+        const warningThreshold = thresholds.governanceViolations.warning;
+
+        if (errorThreshold !== undefined && errorCount > errorThreshold) {
+            logger.error(
+                `Governance error threshold exceeded: ${errorCount} errors (threshold: ${errorThreshold})`
+            );
+            failed = true;
+        }
+
+        if (warningThreshold !== undefined && warningCount > warningThreshold) {
+            logger.warn(
+                `Governance warning threshold exceeded: ${warningCount} warnings (threshold: ${warningThreshold})`
+            );
+            failed = true;
+        }
+    }
+
+    // Check security findings
+    if (thresholds.securityFindings) {
+        const findings = results.security.findings || [];
+
+        const criticalCount = findings.filter(f => f.severity === 'critical').length;
+        const highCount = findings.filter(f => f.severity === 'high').length;
+        const mediumCount = findings.filter(f => f.severity === 'medium').length;
+        const lowCount = findings.filter(f => f.severity === 'low').length;
+
+        const criticalThreshold = thresholds.securityFindings.critical;
+        const highThreshold = thresholds.securityFindings.high;
+        const mediumThreshold = thresholds.securityFindings.medium;
+        const lowThreshold = thresholds.securityFindings.low;
+
+        if (criticalThreshold !== undefined && criticalCount > criticalThreshold) {
+            logger.error(
+                `Critical security findings threshold exceeded: ${criticalCount} findings (threshold: ${criticalThreshold})`
+            );
+            failed = true;
+        }
+
+        if (highThreshold !== undefined && highCount > highThreshold) {
+            logger.error(
+                `High security findings threshold exceeded: ${highCount} findings (threshold: ${highThreshold})`
+            );
+            failed = true;
+        }
+
+        if (mediumThreshold !== undefined && mediumCount > mediumThreshold) {
+            logger.warn(
+                `Medium security findings threshold exceeded: ${mediumCount} findings (threshold: ${mediumThreshold})`
+            );
+            failed = true;
+        }
+
+        if (lowThreshold !== undefined && lowCount > lowThreshold) {
+            logger.warn(
+                `Low security findings threshold exceeded: ${lowCount} findings (threshold: ${lowThreshold})`
+            );
+            failed = true;
+        }
+    }
+
+    // Check test pass rate
+    if (thresholds.testPassRate !== undefined) {
+        const passRate = collector.getSuccessRate();
+
+        if (passRate < thresholds.testPassRate) {
+            logger.error(
+                `Test pass rate below threshold: ${passRate.toFixed(1)}% (threshold: ${thresholds.testPassRate}%)`
+            );
+            failed = true;
+        }
+    }
+
+    if (failed) {
+        logger.error('❌ Thresholds exceeded');
+    }
+
+    return !failed;
 }
 
 // Parse command line arguments
