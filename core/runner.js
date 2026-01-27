@@ -1,6 +1,9 @@
 // Iudex - Test Runner
 import { getTestSuites } from './dsl.js';
 import { HttpClient } from './http-client.js';
+import { ResultCollector } from './collector.js';
+import { GovernanceEngine } from '../governance/engine.js';
+import { SecurityScanner } from '../security/scanner.js';
 
 export class TestRunner {
     constructor(config = {}) {
@@ -10,6 +13,8 @@ export class TestRunner {
             bail: config.bail || false,
             http: config.http || {},
             parallel: config.parallel || false,
+            governance: config.governance || {},
+            security: config.security || {},
             ...config
         };
         this.results = {
@@ -22,6 +27,13 @@ export class TestRunner {
                 duration: 0
             }
         };
+
+        // Initialize collector for governance and security results
+        this.collector = new ResultCollector();
+
+        // Initialize governance engine and security scanner
+        this.governanceEngine = new GovernanceEngine(this.config);
+        this.securityScanner = new SecurityScanner(this.config);
     }
 
     /**
@@ -29,6 +41,7 @@ export class TestRunner {
      */
     async run() {
         const startTime = Date.now();
+        this.collector.start();
         const suites = getTestSuites();
 
         // Filter for .only tests if any exist
@@ -47,6 +60,11 @@ export class TestRunner {
         }
 
         this.results.summary.duration = Date.now() - startTime;
+
+        // Populate collector with test results
+        this.collector.addResults(this.results);
+        this.collector.end();
+
         return this.results;
     }
 
@@ -157,6 +175,16 @@ export class TestRunner {
                 // Run afterEach hooks
                 await this.runHooks(suiteHooks.afterEach, context, 'afterEach');
 
+                // Run governance checks if explicitly enabled
+                if (this.config.governance?.enabled === true) {
+                    await this.runGovernanceChecks(context, test, testResult);
+                }
+
+                // Run security checks if explicitly enabled
+                if (this.config.security?.enabled === true) {
+                    await this.runSecurityChecks(context, test, testResult);
+                }
+
                 // Test passed
                 testResult.status = 'passed';
                 testResult.retries = attempt;
@@ -239,10 +267,107 @@ export class TestRunner {
     }
 
     /**
+     * Run governance checks after test completes
+     */
+    async runGovernanceChecks(context, test, testResult) {
+        try {
+            const client = context.request;
+            const request = client.getLastRequest();
+            const response = client.getLastResponse();
+
+            if (!request || !response) {
+                // No HTTP request was made in this test
+                return;
+            }
+
+            // Store request/response in test result for reporting (if not already stored)
+            if (!testResult.requestBody) {
+                testResult.requestBody = request.body;
+                testResult.responseBody = response.body;
+                testResult.statusCode = response.status;
+                testResult.responseTime = response.responseTime;
+            }
+
+            // Build test context for checks
+            const testContext = {
+                suite: test.suite || 'Unknown Suite',
+                test: test.name
+            };
+
+            // Run governance checks
+            if (this.governanceEngine.isEnabled()) {
+                const violations = await this.governanceEngine.check(
+                    request,
+                    response,
+                    test.endpoint || request.url,
+                    testContext
+                );
+
+                violations.forEach(v => this.collector.addGovernanceViolation(v));
+            }
+        } catch (error) {
+            // Log error but don't fail the test
+            console.warn('Governance checks failed:', error.message);
+        }
+    }
+
+    /**
+     * Run security checks after test completes
+     */
+    async runSecurityChecks(context, test, testResult) {
+        try {
+            const client = context.request;
+            const request = client.getLastRequest();
+            const response = client.getLastResponse();
+
+            if (!request || !response) {
+                // No HTTP request was made in this test
+                return;
+            }
+
+            // Store request/response in test result for reporting (if not already stored)
+            if (!testResult.requestBody) {
+                testResult.requestBody = request.body;
+                testResult.responseBody = response.body;
+                testResult.statusCode = response.status;
+                testResult.responseTime = response.responseTime;
+            }
+
+            // Build test context for checks
+            const testContext = {
+                suite: test.suite || 'Unknown Suite',
+                test: test.name
+            };
+
+            // Run security checks
+            if (this.securityScanner.isEnabled()) {
+                const findings = await this.securityScanner.scan(
+                    request,
+                    response,
+                    test.endpoint || request.url,
+                    testContext
+                );
+
+                findings.forEach(f => this.collector.addSecurityFinding(f));
+            }
+        } catch (error) {
+            // Log error but don't fail the test
+            console.warn('Security checks failed:', error.message);
+        }
+    }
+
+    /**
      * Get test results
      */
     getResults() {
         return this.results;
+    }
+
+    /**
+     * Get result collector (with governance and security results)
+     */
+    getCollector() {
+        return this.collector;
     }
 
     /**

@@ -90,6 +90,36 @@ export class HttpClient {
     clearHistory() {
         this.history = [];
     }
+
+    /**
+     * Get last request from history
+     */
+    getLastRequest() {
+        if (this.history.length === 0) {
+            return null;
+        }
+        return this.history[this.history.length - 1].request;
+    }
+
+    /**
+     * Get last response from history
+     */
+    getLastResponse() {
+        if (this.history.length === 0) {
+            return null;
+        }
+        return this.history[this.history.length - 1].response;
+    }
+
+    /**
+     * Get last request/response pair
+     */
+    getLastExchange() {
+        if (this.history.length === 0) {
+            return null;
+        }
+        return this.history[this.history.length - 1];
+    }
 }
 
 export function createClient(config) {
