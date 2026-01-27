@@ -29,6 +29,7 @@ Thumbs.db
 *.swp
 *.swo
 .claude
+.iudex
 
 # Build
 dist/

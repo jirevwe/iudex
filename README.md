@@ -153,6 +153,65 @@ SELECT * FROM test_health_scores ORDER BY overall_health_score ASC LIMIT 10;
 - Backend API integration
 - JSON/JUnit for CI/CD
 
+### 🎨 Interactive Dashboard
+
+Visualize test results with the built-in web dashboard:
+
+**Option 1: Mount on Your Server**
+
+```javascript
+import express from 'express';
+import { createExpressDashboard } from 'iudex/server/express';
+
+const app = express();
+
+// Mount dashboard at /test-dashboard
+app.use('/test-dashboard', createExpressDashboard({
+  resultsDir: '.iudex/results',
+  title: 'API Test Dashboard'
+}));
+
+app.listen(3000);
+// Visit: http://localhost:3000/test-dashboard
+```
+
+**Option 2: Generate Static Dashboard**
+
+```javascript
+// iudex.config.js
+export default {
+  reporters: [
+    'console',
+    {
+      reporter: 'github-pages',
+      config: {
+        outputDir: 'docs/test-reports',
+        title: 'Test Dashboard',
+        includeHistorical: true
+      }
+    }
+  ]
+};
+```
+
+Then deploy to GitHub Pages or any static hosting.
+
+**Dashboard Features:**
+- 📊 Real-time test results and trends
+- 🔍 Filterable test table with search
+- ⚠️ Governance violations panel
+- 🔒 Security findings overview
+- 📈 Historical run comparison
+- 🌐 Works with Express, Fastify, or standalone
+
+**Supported Frameworks:**
+- Express (`iudex/server/express`)
+- Fastify (`iudex/server/fastify`)
+- Raw Node.js HTTP (`iudex/server/http`)
+- Static generation (`github-pages` reporter)
+
+See [DASHBOARD_SERVER.md](./docs/DASHBOARD_SERVER.md) for complete setup guide.
+
 ## Configuration
 
 Create \`iudex.config.js\`:
