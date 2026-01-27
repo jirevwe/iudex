@@ -15,12 +15,15 @@
 
 ## Current Status
 
-**Week 1 + Week 2 (Days 6-8) Complete ✅**
+**Week 1 + Week 2 Complete ✅**
 
-- 139 unit tests passing
-- 17 integration tests (HTTPBin examples)
-- PostgreSQL persistence layer fully functional
-- Slug-based test identity with history tracking
+- **499 unit tests passing** (100% pass rate)
+- **17 integration tests** (HTTPBin examples)
+- **PostgreSQL persistence layer** fully functional with transaction support
+- **Slug-based test identity** with history tracking and deletion detection
+- **Governance framework** with 5 rules fully implemented and tested
+- **Security scanner** with 6 checks fully implemented and tested
+- **Comprehensive documentation** for governance and security features
 
 ## Quick Start
 
@@ -81,20 +84,32 @@ Write tests like you're used to with Jest/Mocha syntax.
 
 ### 🛡️ Built-in Governance Rules
 
-Automatically enforces:
-- REST standards (HTTP methods, status codes)
-- Resource naming conventions
-- API versioning
-- Pagination requirements
-- Consistent error formats
+**Opt-in enforcement** of API best practices:
+- **REST Standards** - HTTP method validation, status codes, resource naming
+- **API Versioning** - Detect and validate versioning in URL/headers
+- **Naming Conventions** - Enforce kebab-case, snake_case, or camelCase consistency
+- **HTTP Methods** - Validate method semantics (PUT vs PATCH, GET safety)
+- **Pagination** - Detect missing pagination on large collections
+
+> **Note**: Governance checks must be explicitly enabled via `governance: { enabled: true }` in config
 
 ### 🔒 Security Scanning
 
-Detects vulnerabilities:
-- 🔴 **Critical:** Passwords, API keys in responses
-- 🟠 **High:** JWT tokens in body, missing auth
-- 🟡 **Medium:** PII exposure, missing headers
-- 🟢 **Low:** IP addresses, rate limiting
+**Opt-in vulnerability detection** with CWE mappings:
+- 🔴 **Critical:** Password exposure (CWE-200), Insecure auth over HTTP (CWE-319)
+- 🟠 **High:** Missing authentication (CWE-306), IDOR vulnerabilities (CWE-639)
+- 🟡 **Medium:** Missing rate limiting (CWE-770), Security headers (CWE-693)
+- 🟢 **Low:** Incomplete rate limit metadata, Aggressive rate limiting
+
+**Security Checks**:
+- **Sensitive Data** - Detects passwords, API keys, tokens, PII in responses
+- **Authentication** - Validates auth mechanisms and flags weak schemes
+- **Authorization** - Detects IDOR and privilege escalation attempts
+- **Rate Limiting** - Ensures rate limits are present and configured
+- **SSL/TLS** - Enforces HTTPS and secure cookie settings
+- **Security Headers** - Validates HSTS, CSP, CORS, and other headers
+
+> **Note**: Security checks must be explicitly enabled via `security: { enabled: true }` in config
 
 ### 💾 Data Persistence & Analytics
 
@@ -165,19 +180,40 @@ export default {
     poolSize: parseInt(process.env.DB_POOL_SIZE) || 10
   },
 
+  // Governance rules (opt-in)
   governance: {
-    enabled: true,
+    enabled: true,  // Must be explicitly set to true
     rules: {
       'rest-standards': { enabled: true, severity: 'error' },
-      'versioning': { enabled: true, severity: 'warning' }
+      'versioning': { enabled: true, severity: 'warning' },
+      'naming-conventions': { enabled: true, severity: 'info' },
+      'http-methods': { enabled: true, severity: 'error' },
+      'pagination': { enabled: true, severity: 'warning' }
     }
   },
 
+  // Security checks (opt-in)
   security: {
-    enabled: true,
+    enabled: true,  // Must be explicitly set to true
     checks: {
       'sensitive-data': { enabled: true },
-      'authentication': { enabled: true }
+      'authentication': { enabled: true },
+      'authorization': { enabled: true },
+      'rate-limiting': { enabled: true },
+      'ssl-tls': { enabled: true },
+      'headers': { enabled: true }
+    }
+  },
+
+  // Threshold enforcement for CI/CD
+  thresholds: {
+    governanceViolations: {
+      error: 0,      // Fail on any errors
+      warning: 10    // Allow up to 10 warnings
+    },
+    securityFindings: {
+      critical: 0,   // Fail on any critical findings
+      high: 0        // Fail on any high findings
     }
   },
 
@@ -288,51 +324,83 @@ expect(response).toHaveRateLimit()
 
 ## Implementation Status
 
-### ✅ Completed
-- [x] Test DSL (core/dsl.js)
-- [x] HTTP Client (core/http-client.js)
-- [x] Example Governance Rule (governance/rules/rest-standards.js)
-- [x] Example Security Check (security/checks/sensitive-data.js)
+### ✅ Week 1: Core Framework (Complete)
+- [x] Test DSL with lifecycle hooks (core/dsl.js)
+- [x] HTTP Client with request/response capture (core/http-client.js)
+- [x] Test Runner with timeout and retry support (core/runner.js)
+- [x] Result Collector with aggregation (core/collector.js)
+- [x] Console Reporter with color output (reporters/console.js)
+- [x] PostgreSQL Reporter with persistence (reporters/postgres.js)
+- [x] JSON Reporter for CI/CD (reporters/json.js)
+- [x] CLI Tool with run command (cli/index.js)
 - [x] Configuration System (iudex.config.js)
-- [x] Example Tests (examples/users.test.js)
 
-### ⏳ To Implement (4-week roadmap)
-- [ ] Test Runner (core/runner.js)
-- [ ] Result Collector (core/collector.js)
-- [ ] Governance Engine (governance/engine.js)
-- [ ] Security Scanner (security/scanner.js)
-- [ ] Console Reporter (reporters/console.js)
-- [ ] GitHub Pages Reporter (reporters/github-pages.js)
-- [ ] Backend Reporter (reporters/backend.js)
-- [ ] CLI Tool (cli/index.js)
-- [ ] Additional Governance Rules
-- [ ] Additional Security Checks
-- [ ] Postman Import Plugin
-- [ ] OpenAPI Plugin
+### ✅ Week 2: Governance & Security (Complete)
+- [x] Governance Engine (governance/engine.js)
+- [x] 5 Governance Rules:
+  - [x] REST Standards (rest-standards.js)
+  - [x] API Versioning (versioning.js)
+  - [x] Naming Conventions (naming-conventions.js)
+  - [x] HTTP Methods with PUT/PATCH validation (http-methods.js)
+  - [x] Pagination (pagination.js)
+- [x] Security Scanner (security/scanner.js)
+- [x] 6 Security Checks:
+  - [x] Sensitive Data Exposure (sensitive-data.js)
+  - [x] Authentication Validation (authentication.js)
+  - [x] Authorization & IDOR Detection (authorization.js)
+  - [x] Rate Limiting (rate-limiting.js)
+  - [x] SSL/TLS & Secure Cookies (ssl-tls.js)
+  - [x] Security Headers & CORS (headers.js)
+- [x] 499 unit tests (100% pass rate)
+- [x] Integration with test runner (opt-in design)
+- [x] Threshold enforcement in CLI
+- [x] Comprehensive documentation (docs/GOVERNANCE.md, docs/SECURITY.md)
 
-## 4-Week Implementation Plan
+### ⏳ Week 3: Reporting & Analytics (In Progress)
+- [x] PostgreSQL persistence with slug-based identity
+- [x] Transaction support with savepoints
+- [x] Test deletion detection
+- [ ] GitHub Pages static dashboard
+- [ ] Flaky test detection views
+- [ ] Regression tracking views
+- [ ] Health score calculations
+- [ ] Historical trend analysis
 
-### Week 1: Core Framework (MVP)
-- Test Runner
-- Result Collector
-- Console Reporter
-- Basic CLI
+### 📅 Week 4: Ecosystem & Plugins (Planned)
+- [ ] Postman collection import
+- [ ] OpenAPI spec validation
+- [ ] Custom rule/check plugins
+- [ ] Backend API integration
+- [ ] Advanced reporting features
 
-### Week 2: Governance & Security
-- Governance Engine + 5 rules
-- Security Scanner + 6 checks
-- Integration
+## Development Roadmap
 
-### Week 3: Reporting
-- GitHub Pages generator
-- Backend publisher
-- JSON/JUnit reporters
+### ✅ Week 1-2: Foundation Complete
+- Core test framework with 499 passing tests
+- PostgreSQL persistence with transaction support
+- Governance framework with 5 rules
+- Security scanner with 6 checks
+- Comprehensive documentation
 
-### Week 4: Ecosystem
-- Postman import
-- OpenAPI generation
-- Documentation
-- Examples
+### 🚧 Week 3: Advanced Reporting (Current)
+- GitHub Pages dashboard
+- Analytics views (flaky tests, regressions, health scores)
+- Historical trend visualization
+- Performance metrics
+
+### 📅 Week 4: Ecosystem & Plugins (Upcoming)
+- Postman collection import
+- OpenAPI spec validation
+- Custom rule/check plugin system
+- Backend API integration
+- Extended documentation and examples
+
+## Documentation
+
+- **[Governance Guide](docs/GOVERNANCE.md)** - Complete reference for all 5 governance rules
+- **[Security Guide](docs/SECURITY.md)** - Complete reference for all 6 security checks with CWE mappings
+- **[Implementation Summary](docs/IMPLEMENTATION_COMPLETE_SUMMARY.md)** - Detailed implementation overview
+- **Examples** - See `examples/governance-security-demo.test.js` for comprehensive examples
 
 ## License
 
