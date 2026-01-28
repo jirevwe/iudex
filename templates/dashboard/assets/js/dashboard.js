@@ -8,6 +8,11 @@ import { renderSummaryCards } from './components/summary-cards.js';
 import { renderTestTable } from './components/test-table.js';
 import { renderGovernancePanel } from './components/governance-panel.js';
 import { renderSecurityPanel } from './components/security-panel.js';
+import { renderAnalyticsOverview, showAnalyticsLoading, showAnalyticsUnavailable } from './components/analytics-overview.js';
+import { renderFlakyTestsTable } from './components/flaky-tests-table.js';
+import { renderRegressionsPanel } from './components/regressions-panel.js';
+import { renderTrendChart } from './components/trend-chart.js';
+import { renderEndpointRatesTable } from './components/endpoint-rates-table.js';
 
 let dataLoader;
 let currentRunId = null;
@@ -152,11 +157,24 @@ function setupEventListeners() {
   // Tab navigation
   const tabBtns = document.querySelectorAll('.tab-btn');
   tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const tabName = btn.dataset.tab;
       switchTab(tabName);
+
+      // Load analytics when tab is clicked
+      if (tabName === 'analytics') {
+        await loadAnalytics();
+      }
     });
   });
+
+  // Analytics refresh button
+  const refreshAnalyticsBtn = document.getElementById('refresh-analytics-btn');
+  if (refreshAnalyticsBtn) {
+    refreshAnalyticsBtn.addEventListener('click', async () => {
+      await loadAnalytics();
+    });
+  }
 }
 
 /**
@@ -202,6 +220,46 @@ function showError(message) {
   document.getElementById('error-state').style.display = 'flex';
   document.getElementById('dashboard-content').style.display = 'none';
   document.getElementById('error-message').textContent = message;
+}
+
+/**
+ * Load and render analytics data
+ */
+async function loadAnalytics() {
+  try {
+    showAnalyticsLoading();
+
+    // Load all analytics types in parallel
+    const [flakyTests, regressions, dailyStats, endpointRates] = await Promise.all([
+      dataLoader.loadAnalytics('flaky-tests', { limit: 20, days: 30 }),
+      dataLoader.loadAnalytics('regressions', { limit: 20, days: 7 }),
+      dataLoader.loadAnalytics('daily-stats', { days: 30 }),
+      dataLoader.loadAnalytics('endpoint-rates', { limit: 20, days: 30 })
+    ]);
+
+    // Check if analytics are available
+    if (!flakyTests.available && !regressions.available && !dailyStats.available && !endpointRates.available) {
+      showAnalyticsUnavailable();
+      return;
+    }
+
+    // Render all analytics components
+    const analyticsData = {
+      flakyTests,
+      regressions,
+      dailyStats,
+      endpointRates
+    };
+
+    renderAnalyticsOverview(analyticsData);
+    renderFlakyTestsTable(flakyTests.data || []);
+    renderRegressionsPanel(regressions.data || []);
+    renderTrendChart(dailyStats.data || []);
+    renderEndpointRatesTable(endpointRates.data || []);
+  } catch (error) {
+    console.error('Failed to load analytics:', error);
+    showAnalyticsUnavailable();
+  }
 }
 
 // Start dashboard when DOM is ready
