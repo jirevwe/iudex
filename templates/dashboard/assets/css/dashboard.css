@@ -591,3 +591,468 @@ body {
     padding: 0.5rem;
   }
 }
+/* Analytics Components */
+.analytics-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.analytics-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.analytics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.analytics-card .card-icon {
+  font-size: 2.5rem;
+}
+
+.analytics-card .card-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.analytics-card .card-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+}
+
+.analytics-card .card-detail {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+}
+
+/* Analytics Tables */
+.analytics-table {
+  width: 100%;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.analytics-table thead {
+  background: var(--color-bg-secondary);
+}
+
+.analytics-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.analytics-table td {
+  padding: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.analytics-table tbody tr:hover {
+  background: var(--color-bg-secondary);
+}
+
+/* Flaky Tests Table */
+.flaky-tests-table .test-name-main {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.flaky-tests-table .test-slug {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-family: 'Monaco', 'Menlo', monospace;
+  margin-top: 0.25rem;
+}
+
+.flaky-tests-table .rate-bar-container {
+  position: relative;
+  height: 24px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.flaky-tests-table .rate-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  transition: width 0.3s;
+}
+
+.flaky-tests-table .rate-bar.severity-low {
+  background: #fbbf24;
+}
+
+.flaky-tests-table .rate-bar.severity-medium {
+  background: #f97316;
+}
+
+.flaky-tests-table .rate-bar.severity-high {
+  background: #ef4444;
+}
+
+.flaky-tests-table .rate-label {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.5rem;
+  line-height: 24px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+/* Regressions Panel */
+.regressions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.regression-card {
+  padding: 1rem;
+  background: var(--color-bg);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.regression-header {
+  display: flex;
+  align-items: start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.regression-icon {
+  font-size: 1.5rem;
+}
+
+.regression-test-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.regression-slug {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-family: 'Monaco', 'Menlo', monospace;
+  margin-top: 0.25rem;
+}
+
+.regression-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.regression-detail {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.regression-detail .detail-label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.regression-detail .detail-value {
+  color: var(--color-text);
+}
+
+.regression-status {
+  padding: 0.5rem;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* Trend Chart */
+.trend-chart {
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.chart-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.legend-color.passed {
+  background: var(--color-success);
+}
+
+.legend-color.failed {
+  background: var(--color-error);
+}
+
+.legend-color.skipped {
+  background: var(--color-warning);
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 200px;
+  padding: 1rem 0;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.chart-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.chart-bar-stack {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  min-height: 20px;
+}
+
+.bar-segment {
+  width: 100%;
+  transition: height 0.3s;
+}
+
+.bar-segment.passed {
+  background: var(--color-success);
+}
+
+.bar-segment.failed {
+  background: var(--color-error);
+}
+
+.bar-segment.skipped {
+  background: var(--color-warning);
+}
+
+.chart-bar-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.chart-bar-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.chart-metrics {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* Endpoint Rates Table */
+.endpoint-rates-table .endpoint-path code {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.endpoint-rates-table .method-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.endpoint-rates-table .method-badge.get {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.endpoint-rates-table .method-badge.post {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.endpoint-rates-table .method-badge.put,
+.endpoint-rates-table .method-badge.patch {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.endpoint-rates-table .method-badge.delete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.endpoint-rates-table .rate-bar-container {
+  position: relative;
+  height: 24px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.endpoint-rates-table .rate-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  transition: width 0.3s;
+}
+
+.endpoint-rates-table .rate-bar.health-excellent {
+  background: #10b981;
+}
+
+.endpoint-rates-table .rate-bar.health-good {
+  background: #84cc16;
+}
+
+.endpoint-rates-table .rate-bar.health-fair {
+  background: #f59e0b;
+}
+
+.endpoint-rates-table .rate-bar.health-poor {
+  background: #ef4444;
+}
+
+.endpoint-rates-table .rate-label {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.5rem;
+  line-height: 24px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.endpoint-rates-table .failed-count {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+/* Empty States */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: var(--color-text-secondary);
+  max-width: 400px;
+}
+
+.empty-hint {
+  font-size: 0.875rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+/* Analytics Section Spacing */
+.analytics-section {
+  margin-bottom: 2rem;
+}
+
+.analytics-section h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 1rem;
+}
