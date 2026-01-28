@@ -210,7 +210,7 @@ Then deploy to GitHub Pages or any static hosting.
 - Raw Node.js HTTP (`iudex/server/http`)
 - Static generation (`github-pages` reporter)
 
-See [DASHBOARD_SERVER.md](./docs/DASHBOARD_SERVER.md) for complete setup guide.
+See [DASHBOARD_GUIDE.md](./docs/DASHBOARD_GUIDE.md) for complete setup guide with examples.
 
 ## Configuration
 
@@ -415,15 +415,17 @@ expect(response).toHaveRateLimit()
 - [x] Threshold enforcement in CLI
 - [x] Comprehensive documentation (docs/GOVERNANCE.md, docs/SECURITY.md)
 
-### ⏳ Week 3: Reporting & Analytics (In Progress)
+### ✅ Week 3: Reporting & Analytics (Complete)
 - [x] PostgreSQL persistence with slug-based identity
 - [x] Transaction support with savepoints
 - [x] Test deletion detection
-- [ ] GitHub Pages static dashboard
-- [ ] Flaky test detection views
-- [ ] Regression tracking views
-- [ ] Health score calculations
-- [ ] Historical trend analysis
+- [x] GitHub Pages static dashboard
+- [x] Flaky test detection views
+- [x] Regression tracking views
+- [x] Health score calculations
+- [x] Historical trend analysis
+- [x] Analytics API with PostgreSQL integration
+- [x] Interactive dashboard with 4 tabs (Tests, Governance, Security, Analytics)
 
 ### 📅 Week 4: Ecosystem & Plugins (Planned)
 - [ ] Postman collection import
