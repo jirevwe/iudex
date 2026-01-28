@@ -1056,3 +1056,86 @@ body {
   color: var(--color-text);
   margin-bottom: 1rem;
 }
+
+/* Expandable Test Rows */
+.expandable-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.expandable-row:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.expandable-row.expanded {
+  background-color: var(--color-bg-secondary);
+}
+
+.expand-icon {
+  display: inline-block;
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+  transition: transform 0.2s;
+  color: var(--color-text-secondary);
+}
+
+.error-detail-row {
+  background-color: var(--color-bg-secondary);
+}
+
+.error-detail-cell {
+  padding: 0 !important;
+  border-top: none !important;
+}
+
+.error-detail-content {
+  padding: 1rem 1.5rem;
+  background: var(--color-bg);
+  border-left: 4px solid var(--color-error);
+  margin: 0;
+}
+
+.error-message {
+  color: var(--color-error);
+  font-size: 0.9375rem;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.error-message strong {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--color-text);
+}
+
+.stack-trace-details {
+  margin-top: 1rem;
+}
+
+.stack-trace-summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  user-select: none;
+}
+
+.stack-trace-summary:hover {
+  color: var(--color-primary);
+}
+
+.stack-trace-pre {
+  margin: 0.5rem 0 0 0;
+  padding: 0.75rem;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+}
