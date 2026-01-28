@@ -10,6 +10,7 @@ import { ResultCollector } from '../core/collector.js';
 import { ConsoleReporter } from '../reporters/console.js';
 import { JsonReporter } from '../reporters/json.js';
 import { PostgresReporter } from '../reporters/postgres.js';
+import { GitHubPagesReporter } from '../reporters/github-pages.js';
 import { getLogger } from '../core/logger.js';
 
 const logger = getLogger().child({ module: 'cli' });
@@ -69,10 +70,10 @@ program
             // Report results to all reporters
             for (const reporter of reporters) {
                 // ConsoleReporter expects results object
-                // JsonReporter and PostgresReporter expect collector
+                // JsonReporter, PostgresReporter, and GitHubPagesReporter expect collector
                 if (reporter instanceof ConsoleReporter) {
                     reporter.report(collector.getResults());
-                } else if (reporter instanceof JsonReporter || reporter instanceof PostgresReporter) {
+                } else if (reporter instanceof JsonReporter || reporter instanceof PostgresReporter || reporter instanceof GitHubPagesReporter) {
                     await reporter.report(collector);
                 }
             }
@@ -219,8 +220,11 @@ async function loadReporters(config, options) {
                     break;
 
                 case 'github-pages':
+                    reporter = new GitHubPagesReporter(reporterOptions);
+                    break;
+
                 case 'backend':
-                    // Placeholder for Week 3 reporters
+                    // Placeholder for Week 4
                     logger.info({ reporterName }, 'Reporter not yet implemented');
                     break;
 

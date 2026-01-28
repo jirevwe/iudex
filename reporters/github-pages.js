@@ -110,7 +110,12 @@ export class GitHubPagesReporter {
       'components/summary-cards.js',
       'components/test-table.js',
       'components/governance-panel.js',
-      'components/security-panel.js'
+      'components/security-panel.js',
+      'components/analytics-overview.js',
+      'components/flaky-tests-table.js',
+      'components/regressions-panel.js',
+      'components/trend-chart.js',
+      'components/endpoint-rates-table.js'
     ];
 
     for (const file of jsFiles) {
