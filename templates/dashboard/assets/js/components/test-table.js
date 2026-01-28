@@ -43,7 +43,7 @@ function renderTable() {
   if (filteredTests.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
+        <td colspan="4" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
           No tests match the current filter
         </td>
       </tr>
@@ -51,35 +51,45 @@ function renderTable() {
     return;
   }
 
-  tbody.innerHTML = filteredTests.map(test => `
-    <tr>
-      <td>
-        <span class="status-badge ${test.status}">
-          ${getStatusIcon(test.status)} ${test.status}
-        </span>
-      </td>
-      <td>
-        <div class="test-name">${escapeHtml(test.name)}</div>
-      </td>
-      <td>
-        <div class="test-suite">${escapeHtml(test.suiteName)}</div>
-      </td>
-      <td>${formatDuration(test.duration)}</td>
-      <td>
-        ${test.status === 'failed' && test.error ? `
-          <details>
-            <summary style="cursor: pointer; color: var(--color-primary);">View Error</summary>
-            <div style="margin-top: 0.5rem;">
-              <div style="font-weight: 600; color: var(--color-error); margin-bottom: 0.5rem;">
-                ${escapeHtml(formatErrorMessage(test.error))}
+  tbody.innerHTML = filteredTests.map((test, index) => {
+    const hasError = test.status === 'failed' && test.error;
+    const rowClass = hasError ? 'expandable-row' : '';
+
+    return `
+      <tr class="${rowClass}" data-test-index="${index}">
+        <td>
+          <span class="status-badge ${test.status}">
+            ${getStatusIcon(test.status)} ${test.status}
+          </span>
+        </td>
+        <td>
+          <div class="test-name">
+            ${hasError ? '<span class="expand-icon">▶</span> ' : ''}
+            ${escapeHtml(test.name)}
+          </div>
+        </td>
+        <td>
+          <div class="test-suite">${escapeHtml(test.suiteName)}</div>
+        </td>
+        <td>${formatDuration(test.duration)}</td>
+      </tr>
+      ${hasError ? `
+        <tr class="error-detail-row" data-test-index="${index}" style="display: none;">
+          <td colspan="4" class="error-detail-cell">
+            <div class="error-detail-content">
+              <div class="error-message">
+                <strong>Error:</strong> ${escapeHtml(formatErrorMessage(test.error))}
               </div>
               ${formatErrorStack(test.error)}
             </div>
-          </details>
-        ` : '-'}
-      </td>
-    </tr>
-  `).join('');
+          </td>
+        </tr>
+      ` : ''}
+    `;
+  }).join('');
+
+  // Add click handlers for expandable rows
+  setupExpandHandlers();
 }
 
 /**
@@ -101,6 +111,44 @@ function setupEventListeners() {
       filterTests(document.getElementById('test-search').value, e.target.value);
     });
   }
+}
+
+/**
+ * Setup click handlers for expandable rows
+ */
+function setupExpandHandlers() {
+  const expandableRows = document.querySelectorAll('.expandable-row');
+
+  expandableRows.forEach(row => {
+    row.style.cursor = 'pointer';
+
+    row.addEventListener('click', (e) => {
+      // Don't trigger if clicking on a link or button
+      if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') {
+        return;
+      }
+
+      const testIndex = row.dataset.testIndex;
+      const errorRow = document.querySelector(`.error-detail-row[data-test-index="${testIndex}"]`);
+      const expandIcon = row.querySelector('.expand-icon');
+
+      if (errorRow) {
+        const isExpanded = errorRow.style.display !== 'none';
+
+        if (isExpanded) {
+          // Collapse
+          errorRow.style.display = 'none';
+          if (expandIcon) expandIcon.textContent = '▶';
+          row.classList.remove('expanded');
+        } else {
+          // Expand
+          errorRow.style.display = 'table-row';
+          if (expandIcon) expandIcon.textContent = '▼';
+          row.classList.add('expanded');
+        }
+      }
+    });
+  });
 }
 
 /**
@@ -171,11 +219,9 @@ function formatErrorMessage(error) {
 function formatErrorStack(error) {
   if (typeof error === 'object' && error !== null && error.stack) {
     return `
-      <details style="margin-top: 0.5rem;">
-        <summary style="cursor: pointer; color: var(--color-text-secondary); font-size: 0.875rem;">
-          Show Stack Trace
-        </summary>
-        <pre style="margin-top: 0.5rem; padding: 0.5rem; background: var(--color-bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem; overflow-x: auto; max-height: 300px; overflow-y: auto;">${escapeHtml(error.stack)}</pre>
+      <details class="stack-trace-details" open>
+        <summary class="stack-trace-summary">Stack Trace</summary>
+        <pre class="stack-trace-pre">${escapeHtml(error.stack)}</pre>
       </details>
     `;
   }
