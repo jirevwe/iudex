@@ -69,7 +69,12 @@ function renderTable() {
         ${test.status === 'failed' && test.error ? `
           <details>
             <summary style="cursor: pointer; color: var(--color-primary);">View Error</summary>
-            <pre style="margin-top: 0.5rem; padding: 0.5rem; background: var(--color-bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem; overflow-x: auto;">${escapeHtml(test.error)}</pre>
+            <div style="margin-top: 0.5rem;">
+              <div style="font-weight: 600; color: var(--color-error); margin-bottom: 0.5rem;">
+                ${escapeHtml(formatErrorMessage(test.error))}
+              </div>
+              ${formatErrorStack(test.error)}
+            </div>
           </details>
         ` : '-'}
       </td>
@@ -148,11 +153,44 @@ function formatDuration(ms) {
 }
 
 /**
+ * Format error message from error object or string
+ */
+function formatErrorMessage(error) {
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (typeof error === 'object' && error !== null) {
+    return error.message || JSON.stringify(error);
+  }
+  return String(error);
+}
+
+/**
+ * Format error stack trace
+ */
+function formatErrorStack(error) {
+  if (typeof error === 'object' && error !== null && error.stack) {
+    return `
+      <details style="margin-top: 0.5rem;">
+        <summary style="cursor: pointer; color: var(--color-text-secondary); font-size: 0.875rem;">
+          Show Stack Trace
+        </summary>
+        <pre style="margin-top: 0.5rem; padding: 0.5rem; background: var(--color-bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem; overflow-x: auto; max-height: 300px; overflow-y: auto;">${escapeHtml(error.stack)}</pre>
+      </details>
+    `;
+  }
+  return '';
+}
+
+/**
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
+  if (text === null || text === undefined) {
+    return '';
+  }
   const div = document.createElement('div');
-  div.textContent = text;
+  div.textContent = String(text);
   return div.innerHTML;
 }
 
