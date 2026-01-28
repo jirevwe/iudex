@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { fetchAnalytics } from './api/analytics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,9 @@ export class DashboardServer {
       historicalLimit: config.historicalLimit || 50,
       ...config
     };
+
+    // Optional database repository for analytics
+    this.repository = config.repository || null;
 
     // Resolve template directory
     this.templatesDir = path.join(__dirname, '..', 'templates', 'dashboard');
@@ -304,11 +308,11 @@ export class DashboardServer {
    * API: Get PostgreSQL analytics (optional)
    */
   async getAnalytics(searchParams, res) {
-    if (!this.config.apiEndpoint) {
+    if (!this.repository) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         available: false,
-        error: 'Analytics not configured'
+        error: 'Analytics not configured - database repository required'
       }));
       return;
     }
@@ -318,7 +322,6 @@ export class DashboardServer {
     const days = parseInt(searchParams.get('days') || '30');
 
     try {
-      // This will be implemented in analytics.js
       const analytics = await this.fetchAnalytics(type, { limit, days });
 
       res.writeHead(200, {
@@ -337,15 +340,24 @@ export class DashboardServer {
   }
 
   /**
-   * Fetch analytics from PostgreSQL API
-   * This is a placeholder - will be implemented in analytics.js
+   * Fetch analytics from PostgreSQL using repository
    */
   async fetchAnalytics(type, options) {
-    // TODO: Implement in Phase 5
-    return {
-      available: false,
-      message: 'Analytics not yet implemented'
+    if (!this.repository) {
+      return {
+        available: false,
+        error: 'Database repository not configured'
+      };
+    }
+
+    // Create a client wrapper for the analytics API
+    const client = {
+      query: async (sql, params) => {
+        return await this.repository.db.query(sql, params);
+      }
     };
+
+    return await fetchAnalytics(client, type, options);
   }
 
   /**
