@@ -82,6 +82,46 @@ npx iudex report --format github-pages --output docs/
 
 Write tests like you're used to with Jest/Mocha syntax.
 
+### 📚 Comprehensive Standard Library
+
+**Postman-like utilities** available in every test via the `std` object:
+
+```javascript
+test('create user with utilities', async ({ std, request }) => {
+  // Generate test data
+  const user = {
+    id: std.crypto.uuid(),
+    email: std.random.email(),
+    name: std.random.fullName(),
+    createdAt: std.datetime.nowISO()
+  };
+
+  // Create HMAC signature
+  const signature = std.crypto.hmacSHA256(
+    std.encode.json(user),
+    'secret-key'
+  );
+
+  // Make authenticated request
+  const response = await request.post('/users', user, {
+    headers: { 'X-Signature': signature }
+  });
+
+  expect(response).toHaveStatus(201);
+});
+```
+
+**Available Utilities:**
+- **Encoding/Decoding** - Base64, URL, JSON
+- **Cryptography** - Hash functions (MD5, SHA256, SHA512), HMAC, UUID, random bytes
+- **String Manipulation** - Case conversion (camelCase, snake_case, kebab-case), truncation, padding
+- **Date/Time** - Formatting, parsing, arithmetic, comparison
+- **Random Data** - Realistic test data (emails, names, phone numbers, addresses, UUIDs)
+- **Object/Array Utilities** - Deep operations (pick, omit, merge, flatten, unique, sort)
+- **Validators** - Format validation (email, URL, UUID, IP, JSON, phone, hex)
+
+See the [Standard Library Reference](docs/STANDARD_LIBRARY.md) for complete API documentation.
+
 ### 🛡️ Built-in Governance Rules
 
 **Opt-in enforcement** of API best practices:
