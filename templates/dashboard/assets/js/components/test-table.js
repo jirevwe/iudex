@@ -287,11 +287,16 @@ function collapseAllSuites() {
   renderTable();
 }
 
+/**
+ * Setup test row expand handlers (for error details)
+ */
+function setupTestExpandHandlers() {
+  const expandableRows = document.querySelectorAll('.test-row.expandable-row');
+
   expandableRows.forEach(row => {
     row.style.cursor = 'pointer';
 
     row.addEventListener('click', (e) => {
-      // Don't trigger if clicking on a link or button
       if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') {
         return;
       }
@@ -304,12 +309,10 @@ function collapseAllSuites() {
         const isExpanded = errorRow.style.display !== 'none';
 
         if (isExpanded) {
-          // Collapse
           errorRow.style.display = 'none';
           if (expandIcon) expandIcon.textContent = '▶';
           row.classList.remove('expanded');
         } else {
-          // Expand
           errorRow.style.display = 'table-row';
           if (expandIcon) expandIcon.textContent = '▼';
           row.classList.add('expanded');
@@ -438,12 +441,13 @@ function escapeHtml(text) {
 
 /**
  * Show empty state
+ * @param {string} message - Empty state message
  */
 function showEmptyState(message) {
   const tbody = document.getElementById('test-table-body');
   tbody.innerHTML = `
     <tr>
-      <td colspan="5" style="text-align: center; padding: 3rem;">
+      <td colspan="3" style="text-align: center; padding: 3rem;">
         <div style="color: var(--color-text-secondary);">${message}</div>
       </td>
     </tr>
