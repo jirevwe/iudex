@@ -3,6 +3,7 @@
    Based on Oxide Computer's design system tokens
    Design Philosophy: Technical minimalism, dark mode default, enterprise-grade
    ============================================================================ */
+
 /* Reset and Base Styles */
 * {
   margin: 0;
@@ -52,6 +53,92 @@
   --color-accent-primary: #48D597;       /* Oxide green - Links, active states */
   --color-accent-secondary: #8BA1FF;     /* Blue-800 - Secondary accent */
 
+  /* === TYPOGRAPHY === */
+
+  /* Font Families */
+  --font-display: 'Neue Haas Grotesk', 'Inter', 'Helvetica Neue',
+                  -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Suisse Int\'l', 'Inter', -apple-system,
+               BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'GT America Mono', 'IBM Plex Mono', 'JetBrains Mono',
+               'Fira Code', 'Monaco', 'Consolas', monospace;
+
+  /* Type Scale - Oxide Tokens */
+  --text-xs: 0.6875rem;      /* 11px */
+  --text-sm: 0.75rem;        /* 12px */
+  --text-md: 0.875rem;       /* 14px */
+  --text-base: 1rem;         /* 16px */
+  --text-lg: 1.125rem;       /* 18px */
+  --text-xl: 1.5625rem;      /* 25px */
+  --text-2xl: 2.25rem;       /* 36px */
+  --text-3xl: 3.25rem;       /* 52px */
+
+  /* Monospace specific */
+  --text-mono-xs: 0.6875rem; /* 11px */
+  --text-mono-sm: 0.75rem;   /* 12px */
+  --text-mono-code: 0.75rem; /* 12px for code */
+  --text-mono-md: 0.875rem;  /* 14px */
+
+  /* Font Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semi: 600;
+
+  /* Line Heights */
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* Letter Spacing */
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.04em;     /* Oxide signature 4% spacing */
+
+  /* === SPACING === */
+
+  /* Spacing Scale (4px base unit - Oxide System) */
+  --space-1: 0.25rem;      /* 4px - Minimal spacing */
+  --space-2: 0.5rem;       /* 8px - Tight spacing */
+  --space-3: 0.75rem;      /* 12px - Small padding */
+  --space-4: 1rem;         /* 16px - Component internal padding */
+  --space-5: 1.25rem;      /* 20px */
+  --space-6: 1.5rem;       /* 24px - Between components */
+  --space-8: 2rem;         /* 32px - Section spacing */
+  --space-10: 2.5rem;      /* 40px */
+  --space-12: 3rem;        /* 48px - Major section divisions */
+  --space-16: 4rem;        /* 64px - Page-level spacing */
+
+  /* Semantic Spacing */
+  --spacing-tight: var(--space-2);
+  --spacing-normal: var(--space-4);
+  --spacing-comfortable: var(--space-6);
+  --spacing-loose: var(--space-8);
+
+  /* === BORDERS === */
+
+  /* Border Radius (Oxide Tokens) */
+  --radius-sm: 2px;        /* Tight corners */
+  --radius-default: 3px;   /* Default components */
+  --radius-lg: 6px;        /* Larger elements */
+  --radius-xl: 12px;       /* Very large elements */
+  --radius-full: 9999px;   /* Pills/circles */
+
+  /* === SHADOWS === */
+
+  /* Elevation Shadows (Oxide System - minimal shadows) */
+  --shadow-none: none;
+  --shadow-1: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-2: 0 1px 2px 0 rgba(0, 0, 0, 0.6),
+              0 1px 4px 0 rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 1px 2px 0 rgba(0, 0, 0, 0.6),
+              0 2px 8px 0 rgba(0, 0, 0, 0.5),
+              0 4px 16px 0 rgba(0, 0, 0, 0.4);
+
+  /* === LAYOUT === */
+
+  --container-max: 1280px;
+  --content-max: 960px;
+  --grid-gap: 2rem;
 }
 
 /* ============================================================================
@@ -89,15 +176,19 @@
    ============================================================================ */
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  line-height: 1.6;
-  color: var(--color-text);
-  background-color: var(--color-bg-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Dashboard Container */
 .dashboard-container {
-  max-width: 1400px;
+  max-width: var(--container-max);
   margin: 0 auto;
   padding: 0;
 }
