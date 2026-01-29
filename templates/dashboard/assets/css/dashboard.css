@@ -619,7 +619,156 @@ select option {
 
 .panel-controls {
   display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* Control buttons for Expand All / Collapse All */
+.control-btn {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  border-radius: var(--radius-default);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.control-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-emphasis);
+  color: var(--color-text-primary);
+}
+
+.control-btn:active {
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+}
+
+/* ============================================================================
+   SUITE GROUPING STYLES - SCALABLE COLLAPSE/EXPAND
+   ============================================================================ */
+
+/* Suite Header Row */
+.suite-header-row {
+  background: var(--color-bg-secondary);
+  border-top: 2px solid var(--color-border-emphasis);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.suite-header-row:hover {
+  background: var(--color-bg-hover);
+}
+
+.suite-header-row td {
+  padding: var(--space-4);
+  border-bottom: none;
+}
+
+/* Suite Header Content */
+.suite-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semi);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.suite-expand-icon {
+  display: inline-block;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  transition: transform 0.2s;
+  width: 16px;
+  text-align: center;
+}
+
+.suite-header-row.collapsed .suite-expand-icon {
+  transform: rotate(0deg); /* ▶ */
+}
+
+.suite-header-row.expanded .suite-expand-icon {
+  transform: rotate(90deg); /* ▼ */
+}
+
+.suite-name {
+  flex: 0 0 auto;
+  color: var(--color-text-primary);
+}
+
+/* Suite Statistics */
+.suite-stats {
+  display: flex;
+  align-items: center;
   gap: var(--space-4);
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.suite-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.suite-stat.passed {
+  color: var(--color-success-bright);
+}
+
+.suite-stat.failed {
+  color: var(--color-error-bright);
+}
+
+.suite-stat.skipped {
+  color: var(--color-text-tertiary);
+}
+
+.suite-stat-duration {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border);
+}
+
+/* Suite Status Indicators (left border) */
+.suite-header-row.suite-has-failures {
+  border-left: 4px solid var(--color-error-bright);
+}
+
+.suite-header-row.suite-all-passed {
+  border-left: 4px solid var(--color-success-bright);
+}
+
+.suite-header-row.suite-mixed {
+  border-left: 4px solid var(--color-warning-bright);
+}
+
+/* Test Rows - Hidden when suite collapsed */
+.test-row.suite-collapsed {
+  display: none;
+}
+
+.error-detail-row.suite-collapsed {
+  display: none;
+}
+
+/* Visual hierarchy: indent tests slightly */
+.test-row td:first-child {
+  padding-left: var(--space-6);
 }
 
 /* ============================================================================
@@ -671,11 +820,6 @@ select option {
 
 .test-table th:nth-child(3),
 .test-table td:nth-child(3) {
-  width: 150px; /* Suite column */
-}
-
-.test-table th:nth-child(4),
-.test-table td:nth-child(4) {
   width: 100px; /* Duration column */
 }
 
@@ -1518,6 +1662,7 @@ select option {
 
   .panel-controls {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .search-input,
@@ -1525,6 +1670,22 @@ select option {
   .run-selector {
     width: 100%;
     min-width: auto;
+  }
+
+  .control-btn {
+    font-size: var(--text-xs);
+    padding: var(--space-2);
+  }
+
+  /* Suite header adjustments for mobile */
+  .suite-header {
+    flex-wrap: wrap;
+  }
+
+  .suite-stats {
+    flex-basis: 100%;
+    margin-left: var(--space-8);
+    margin-top: var(--space-2);
   }
 
   .git-info-card {
