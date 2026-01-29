@@ -7,7 +7,7 @@ let allTests = [];
 let filteredTests = [];
 
 /**
- * Render test results table
+ * Render test results table grouped by suite
  * @param {Array} suites - Test suites data
  */
 export function renderTestTable(suites) {
@@ -36,14 +36,15 @@ export function renderTestTable(suites) {
 
 /**
  * Render the table with current filtered tests
+ * Render grouped table with collapse/expand
  */
 function renderTable() {
   const tbody = document.getElementById('test-table-body');
 
-  if (filteredTests.length === 0) {
+  if (filteredSuites.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="4" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
+        <td colspan="3" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">
           No tests match the current filter
         </td>
       </tr>
@@ -51,49 +52,100 @@ function renderTable() {
     return;
   }
 
-  tbody.innerHTML = filteredTests.map((test, index) => {
-    const hasError = test.status === 'failed' && test.error;
-    const rowClass = hasError ? 'expandable-row' : '';
+  let html = '';
+  let globalTestIndex = 0;
 
-    return `
-      <tr class="${rowClass}" data-test-index="${index}">
-        <td>
-          <span class="status-badge ${test.status}">
-            ${getStatusIcon(test.status)} ${test.status.toUpperCase()}
-          </span>
-        </td>
-        <td>
-          <div class="test-name">
-            ${hasError ? '<span class="expand-icon">▶</span> ' : ''}
-            ${escapeHtml(test.name)}
+  filteredSuites.forEach((suite, suiteIndex) => {
+    const suiteStatusClass = getSuiteStatusClass(suite);
+    const expandedClass = suite.isExpanded ? 'expanded' : 'collapsed';
+    const icon = suite.isExpanded ? '▼' : '▶';
+
+    // Suite Header Row
+    html += `
+      <tr class="suite-header-row ${suiteStatusClass} ${expandedClass}"
+          data-suite-index="${suiteIndex}">
+        <td colspan="3">
+          <div class="suite-header">
+            <span class="suite-expand-icon">${icon}</span>
+            <span class="suite-name">${escapeHtml(suite.name)}</span>
+            <div class="suite-stats">
+              ${suite.passed > 0 ? `<span class="suite-stat passed">${suite.passed} passed</span>` : ''}
+              ${suite.failed > 0 ? `<span class="suite-stat failed">${suite.failed} failed</span>` : ''}
+              ${suite.skipped > 0 ? `<span class="suite-stat skipped">${suite.skipped} skipped</span>` : ''}
+              <span class="suite-stat-duration">${formatDuration(suite.duration)}</span>
+            </div>
           </div>
         </td>
-        <td>
-          <div class="test-suite">${escapeHtml(test.suiteName)}</div>
-        </td>
-        <td>${formatDuration(test.duration)}</td>
       </tr>
-      ${hasError ? `
-        <tr class="error-detail-row" data-test-index="${index}" style="display: none;">
-          <td colspan="4" class="error-detail-cell">
-            <div class="error-detail-content">
-              <div class="error-message">
-                <strong>Error:</strong> ${escapeHtml(formatErrorMessage(test.error))}
-              </div>
-              ${formatErrorStack(test.error)}
-            </div>
-          </td>
-        </tr>
-      ` : ''}
     `;
-  }).join('');
 
-  // Add click handlers for expandable rows
-  setupExpandHandlers();
+    // Test Rows
+    if (suite.tests && Array.isArray(suite.tests)) {
+      suite.tests.forEach((test) => {
+        const hasError = test.status === 'failed' && test.error;
+        const rowClass = hasError ? 'expandable-row' : '';
+        const hiddenClass = suite.isExpanded ? '' : 'suite-collapsed';
+
+        html += `
+          <tr class="test-row ${rowClass} ${hiddenClass}"
+              data-suite-index="${suiteIndex}"
+              data-test-index="${globalTestIndex}">
+            <td>
+              <span class="status-badge ${test.status}">
+                ${getStatusIcon(test.status)} ${test.status.toUpperCase()}
+              </span>
+            </td>
+            <td>
+              <div class="test-name">
+                ${hasError ? '<span class="expand-icon">▶</span> ' : ''}
+                ${escapeHtml(test.name)}
+              </div>
+            </td>
+            <td>${formatDuration(test.duration)}</td>
+          </tr>
+        `;
+
+        // Error Detail Row
+        if (hasError) {
+          html += `
+            <tr class="error-detail-row ${hiddenClass}"
+                data-suite-index="${suiteIndex}"
+                data-test-index="${globalTestIndex}"
+                style="display: none;">
+              <td colspan="3" class="error-detail-cell">
+                <div class="error-detail-content">
+                  <div class="error-message">
+                    <strong>Error:</strong> ${escapeHtml(formatErrorMessage(test.error))}
+                  </div>
+                  ${formatErrorStack(test.error)}
+                </div>
+              </td>
+            </tr>
+          `;
+        }
+
+        globalTestIndex++;
+      });
+    }
+  });
+
+  tbody.innerHTML = html;
+
+  setupSuiteExpandHandlers();
+  setupTestExpandHandlers();
 }
 
 /**
- * Setup event listeners for search and filter
+ * Get suite status class for left border indicator
+ * @param {Object} suite - Suite object
+ * @returns {string} - CSS class name
+ */
+function getSuiteStatusClass(suite) {
+  if (suite.failed > 0) return 'suite-has-failures';
+  if (suite.passed > 0 && suite.failed === 0 && suite.skipped === 0) return 'suite-all-passed';
+  return 'suite-mixed';
+}
+
  */
 function setupEventListeners() {
   // Search input
@@ -180,6 +232,8 @@ function filterTests(query, status) {
 
 /**
  * Get status icon
+ * @param {string} status - Test status
+ * @returns {string} - Icon character
  */
 function getStatusIcon(status) {
   const icons = {
@@ -192,6 +246,8 @@ function getStatusIcon(status) {
 
 /**
  * Format duration in milliseconds
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string} - Formatted duration
  */
 function formatDuration(ms) {
   if (ms < 1000) {
@@ -202,6 +258,8 @@ function formatDuration(ms) {
 
 /**
  * Format error message from error object or string
+ * @param {*} error - Error object or string
+ * @returns {string} - Formatted error message
  */
 function formatErrorMessage(error) {
   if (typeof error === 'string') {
@@ -215,6 +273,8 @@ function formatErrorMessage(error) {
 
 /**
  * Format error stack trace
+ * @param {*} error - Error object
+ * @returns {string} - Formatted stack trace HTML
  */
 function formatErrorStack(error) {
   if (typeof error === 'object' && error !== null && error.stack) {
@@ -230,6 +290,8 @@ function formatErrorStack(error) {
 
 /**
  * Escape HTML to prevent XSS
+ * @param {*} text - Text to escape
+ * @returns {string} - Escaped HTML
  */
 function escapeHtml(text) {
   if (text === null || text === undefined) {
