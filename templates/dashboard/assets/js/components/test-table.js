@@ -320,28 +320,46 @@ function collapseAllSuites() {
 }
 
 /**
- * Filter tests by search query and status
+ * Filter tests and show results with suite headers
+ * Per user requirement: "When a user searches it should show the results with their suite headers"
  * @param {string} query - Search query
  * @param {string} status - Status filter ('all', 'passed', 'failed', 'skipped')
  */
 function filterTests(query, status) {
-  filteredTests = allTests.filter(test => {
-    // Status filter
-    if (status !== 'all' && test.status !== status) {
-      return false;
-    }
+  filteredSuites = allSuites.map(suite => {
+    const filteredTests = suite.tests.filter(test => {
+      // Status filter
+      if (status !== 'all' && test.status !== status) {
+        return false;
+      }
 
-    // Search filter
-    if (query) {
-      const searchLower = query.toLowerCase();
-      return (
-        test.name.toLowerCase().includes(searchLower) ||
-        test.suiteName.toLowerCase().includes(searchLower)
-      );
-    }
+      // Search filter
+      if (query) {
+        const searchLower = query.toLowerCase();
+        // Match on test name OR suite name
+        return (
+          test.name.toLowerCase().includes(searchLower) ||
+          suite.name.toLowerCase().includes(searchLower)
+        );
+      }
 
-    return true;
-  });
+      return true;
+    });
+
+    // If suite has matching tests, show it with its tests
+    // Suite header is ALWAYS shown when tests match (per user requirement)
+    const hasMatches = filteredTests.length > 0;
+
+    return {
+      ...suite,
+      tests: filteredTests,
+      isExpanded: hasMatches && query, // Auto-expand when searching
+      passed: filteredTests.filter(t => t.status === 'passed').length,
+      failed: filteredTests.filter(t => t.status === 'failed').length,
+      skipped: filteredTests.filter(t => t.status === 'skipped').length,
+      duration: filteredTests.reduce((sum, t) => sum + (t.duration || 0), 0)
+    };
+  }).filter(suite => suite.tests.length > 0); // Only show suites with matching tests
 
   renderTable();
 }
