@@ -1,10 +1,10 @@
 /**
  * Test Table Component
- * Renders test results in a sortable, filterable table
+ * Renders test results grouped by suite with collapse/expand functionality
  */
 
-let allTests = [];
-let filteredTests = [];
+let allSuites = [];      // Array of suite objects (not flattened)
+let filteredSuites = []; // Filtered suite objects
 
 /**
  * Render test results table grouped by suite
@@ -16,26 +16,57 @@ export function renderTestTable(suites) {
     return;
   }
 
-  // Flatten suites into individual tests
-  allTests = [];
-  suites.forEach(suite => {
-    if (suite.tests && Array.isArray(suite.tests)) {
-      suite.tests.forEach(test => {
-        allTests.push({
-          ...test,
-          suiteName: suite.name
-        });
-      });
-    }
+  // Store suites with expand state and calculate statistics
+  allSuites = suites.map((suite, index) => {
+    const tests = suite.tests || [];
+    const passed = tests.filter(t => t.status === 'passed').length;
+    const failed = tests.filter(t => t.status === 'failed').length;
+    const skipped = tests.filter(t => t.status === 'skipped').length;
+    const duration = tests.reduce((sum, t) => sum + (t.duration || 0), 0);
+
+    return {
+      ...suite,
+      name: suite.name || 'Default Suite',  // Use 'Default Suite' if no name provided
+      suiteIndex: index,
+      isExpanded: shouldExpandByDefault(suite, failed),
+      tests: tests,
+      passed,
+      failed,
+      skipped,
+      duration
+    };
   });
 
-  filteredTests = [...allTests];
+  // If suites array is empty but we might have tests, create a default suite
+  if (allSuites.length === 0) {
+    allSuites = [{
+      name: 'Default Suite',
+      suiteIndex: 0,
+      isExpanded: false,
+      tests: [],
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      duration: 0
+    }];
+  }
+
+  filteredSuites = [...allSuites];
   renderTable();
   setupEventListeners();
 }
 
 /**
- * Render the table with current filtered tests
+ * All suites collapsed by default (per user requirement)
+ * @param {Object} suite - Suite object
+ * @param {number} failedCount - Number of failed tests
+ * @returns {boolean} - Whether suite should be expanded by default
+ */
+function shouldExpandByDefault(suite, failedCount) {
+  return false; // ALL suites collapsed by default
+}
+
+/**
  * Render grouped table with collapse/expand
  */
 function renderTable() {
