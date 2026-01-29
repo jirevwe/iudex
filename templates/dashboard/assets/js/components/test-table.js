@@ -59,7 +59,7 @@ function renderTable() {
       <tr class="${rowClass}" data-test-index="${index}">
         <td>
           <span class="status-badge ${test.status}">
-            ${getStatusIcon(test.status)} ${test.status}
+            ${getStatusIcon(test.status)} ${test.status.toUpperCase()}
           </span>
         </td>
         <td>
@@ -248,7 +248,6 @@ function showEmptyState(message) {
   tbody.innerHTML = `
     <tr>
       <td colspan="5" style="text-align: center; padding: 3rem;">
-        <div class="empty-state-icon">📋</div>
         <div style="color: var(--color-text-secondary);">${message}</div>
       </td>
     </tr>
