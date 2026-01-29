@@ -4,6 +4,7 @@ import { HttpClient } from './http-client.js';
 import { ResultCollector } from './collector.js';
 import { GovernanceEngine } from '../governance/engine.js';
 import { SecurityScanner } from '../security/scanner.js';
+import { createStdObject } from './utils/index.js';
 
 export class TestRunner {
     constructor(config = {}) {
@@ -258,11 +259,19 @@ export class TestRunner {
     }
 
     /**
+     * Create standard library object
+     */
+    createStdObject() {
+        return createStdObject();
+    }
+
+    /**
      * Create test context with fixtures
      */
     createContext() {
         return {
-            request: new HttpClient(this.config.http)
+            request: new HttpClient(this.config.http),
+            std: this.createStdObject()
         };
     }
 
