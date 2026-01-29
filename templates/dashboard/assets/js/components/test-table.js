@@ -177,6 +177,8 @@ function getSuiteStatusClass(suite) {
   return 'suite-mixed';
 }
 
+/**
+ * Setup event listeners for search, filter, and control buttons
  */
 function setupEventListeners() {
   // Search input
@@ -194,13 +196,96 @@ function setupEventListeners() {
       filterTests(document.getElementById('test-search').value, e.target.value);
     });
   }
+
+  // Expand All button
+  const expandAllBtn = document.getElementById('expand-all-btn');
+  if (expandAllBtn) {
+    expandAllBtn.addEventListener('click', () => {
+      expandAllSuites();
+    });
+  }
+
+  // Collapse All button
+  const collapseAllBtn = document.getElementById('collapse-all-btn');
+  if (collapseAllBtn) {
+    collapseAllBtn.addEventListener('click', () => {
+      collapseAllSuites();
+    });
+  }
 }
 
 /**
- * Setup click handlers for expandable rows
+ * Setup suite header click handlers
  */
-function setupExpandHandlers() {
-  const expandableRows = document.querySelectorAll('.expandable-row');
+function setupSuiteExpandHandlers() {
+  const suiteHeaders = document.querySelectorAll('.suite-header-row');
+
+  suiteHeaders.forEach(row => {
+    row.addEventListener('click', (e) => {
+      const suiteIndex = parseInt(row.dataset.suiteIndex);
+      toggleSuite(suiteIndex);
+    });
+  });
+}
+
+/**
+ * Toggle individual suite expand/collapse
+ * @param {number} suiteIndex - Index of suite in filteredSuites
+ */
+function toggleSuite(suiteIndex) {
+  const suite = filteredSuites[suiteIndex];
+  suite.isExpanded = !suite.isExpanded;
+
+  const row = document.querySelector(`.suite-header-row[data-suite-index="${suiteIndex}"]`);
+  const icon = row.querySelector('.suite-expand-icon');
+
+  row.classList.toggle('expanded', suite.isExpanded);
+  row.classList.toggle('collapsed', !suite.isExpanded);
+  icon.textContent = suite.isExpanded ? '▼' : '▶';
+
+  // Toggle visibility of test rows
+  const testRows = document.querySelectorAll(`tr.test-row[data-suite-index="${suiteIndex}"]`);
+  const errorRows = document.querySelectorAll(`tr.error-detail-row[data-suite-index="${suiteIndex}"]`);
+
+  testRows.forEach(testRow => {
+    testRow.classList.toggle('suite-collapsed', !suite.isExpanded);
+  });
+
+  errorRows.forEach(errorRow => {
+    errorRow.classList.toggle('suite-collapsed', !suite.isExpanded);
+    // If suite is collapsed, also collapse error details
+    if (!suite.isExpanded) {
+      errorRow.style.display = 'none';
+      const testIndex = errorRow.dataset.testIndex;
+      const parentRow = document.querySelector(`tr.test-row[data-test-index="${testIndex}"]`);
+      if (parentRow) {
+        const expandIcon = parentRow.querySelector('.expand-icon');
+        if (expandIcon) expandIcon.textContent = '▶';
+        parentRow.classList.remove('expanded');
+      }
+    }
+  });
+}
+
+/**
+ * Expand all suites
+ */
+function expandAllSuites() {
+  filteredSuites.forEach((suite, index) => {
+    suite.isExpanded = true;
+  });
+  renderTable();
+}
+
+/**
+ * Collapse all suites
+ */
+function collapseAllSuites() {
+  filteredSuites.forEach((suite, index) => {
+    suite.isExpanded = false;
+  });
+  renderTable();
+}
 
   expandableRows.forEach(row => {
     row.style.cursor = 'pointer';
