@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Iudex Test Dashboard</title>
+  <title>IUDEX Test Dashboard</title>
   <base href="{{BASE_URL}}/">
   <link rel="stylesheet" href="assets/css/dashboard.css">
 </head>
@@ -12,7 +12,7 @@
     <!-- Header -->
     <header class="dashboard-header">
       <div class="header-content">
-        <h1 class="dashboard-title">Iudex Test Dashboard</h1>
+        <h1 class="dashboard-title">IUDEX</h1>
         <div class="header-controls">
           <select id="run-selector" class="run-selector">
             <option value="">Loading runs...</option>
@@ -34,7 +34,6 @@
 
     <!-- Error State -->
     <div id="error-state" class="error-state" style="display: none;">
-      <div class="error-icon">⚠️</div>
       <h2>Failed to Load Dashboard</h2>
       <p id="error-message"></p>
       <button id="retry-btn" class="btn-primary">Retry</button>
@@ -45,42 +44,37 @@
       <!-- Summary Cards -->
       <section class="summary-section">
         <div class="summary-card total">
-          <div class="card-icon">📊</div>
           <div class="card-content">
-            <div class="card-value" id="summary-total">0</div>
             <div class="card-label">Total Tests</div>
+            <div class="card-value" id="summary-total">0</div>
           </div>
         </div>
 
         <div class="summary-card passed">
-          <div class="card-icon">✅</div>
           <div class="card-content">
-            <div class="card-value" id="summary-passed">0</div>
             <div class="card-label">Passed</div>
+            <div class="card-value" id="summary-passed">0</div>
           </div>
         </div>
 
         <div class="summary-card failed">
-          <div class="card-icon">❌</div>
           <div class="card-content">
-            <div class="card-value" id="summary-failed">0</div>
             <div class="card-label">Failed</div>
+            <div class="card-value" id="summary-failed">0</div>
           </div>
         </div>
 
         <div class="summary-card skipped">
-          <div class="card-icon">⏭️</div>
           <div class="card-content">
-            <div class="card-value" id="summary-skipped">0</div>
             <div class="card-label">Skipped</div>
+            <div class="card-value" id="summary-skipped">0</div>
           </div>
         </div>
 
         <div class="summary-card duration">
-          <div class="card-icon">⏱️</div>
           <div class="card-content">
-            <div class="card-value" id="summary-duration">0s</div>
             <div class="card-label">Duration</div>
+            <div class="card-value" id="summary-duration">0s</div>
           </div>
         </div>
       </section>
