@@ -869,6 +869,27 @@ select option {
   hyphens: auto;
 }
 
+/* Deleted tests - greyed out styling */
+.test-row.deleted-test {
+  opacity: 0.5;
+}
+
+.test-row.deleted-test .test-name {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.test-row.deleted-test .status-badge {
+  opacity: 0.6;
+}
+
+.deleted-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  margin-left: var(--space-2);
+}
+
 .test-suite {
   font-size: var(--text-sm);
   color: var(--color-text-secondary);

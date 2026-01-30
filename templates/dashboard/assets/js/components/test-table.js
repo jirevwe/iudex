@@ -5,12 +5,18 @@
 
 let allSuites = [];      // Array of suite objects (not flattened)
 let filteredSuites = []; // Filtered suite objects
+let deletedTestSlugs = new Set(); // Set of deleted test slugs
 
 /**
  * Render test results table grouped by suite
  * @param {Array} suites - Test suites data
+ * @param {Array} deletedTests - Optional array of deleted tests from database
  */
-export function renderTestTable(suites) {
+export function renderTestTable(suites, deletedTests = []) {
+  // Build set of deleted test slugs for quick lookup
+  deletedTestSlugs = new Set(
+    deletedTests.map(t => t.test_slug).filter(Boolean)
+  );
   if (!suites || !Array.isArray(suites)) {
     showEmptyState('No test results available');
     return;
@@ -117,19 +123,27 @@ function renderTable() {
         const rowClass = hasError ? 'expandable-row' : '';
         const hiddenClass = suite.isExpanded ? '' : 'suite-collapsed';
 
+        // Check if test is deleted (either status='deleted' or has deletedAt timestamp)
+        const isDeleted = test.status === 'deleted' || test.deletedAt || (test.id && deletedTestSlugs.has(test.id));
+        const deletedClass = isDeleted ? 'deleted-test' : '';
+        const deletedLabel = isDeleted ? ' <span class="deleted-label">(deleted)</span>' : '';
+
+        // Show original status if test was deleted (not the 'deleted' status)
+        const displayStatus = test.status === 'deleted' ? 'skipped' : test.status;
+
         html += `
-          <tr class="test-row ${rowClass} ${hiddenClass}"
+          <tr class="test-row ${rowClass} ${hiddenClass} ${deletedClass}"
               data-suite-index="${suiteIndex}"
               data-test-index="${globalTestIndex}">
             <td>
-              <span class="status-badge ${test.status}">
-                ${getStatusIcon(test.status)} ${test.status.toUpperCase()}
+              <span class="status-badge ${displayStatus}">
+                ${getStatusIcon(displayStatus)} ${displayStatus.toUpperCase()}
               </span>
             </td>
             <td>
               <div class="test-name">
                 ${hasError ? '<span class="expand-icon">▶</span> ' : ''}
-                ${escapeHtml(test.name)}
+                ${escapeHtml(test.name)}${deletedLabel}
               </div>
             </td>
             <td>${formatDuration(test.duration)}</td>

@@ -66,9 +66,23 @@ async function loadRun(runId) {
     const runData = await dataLoader.loadRun(runId);
     currentRunId = runId;
 
+    // Fetch deleted tests if in server mode (for marking deleted tests in UI)
+    let deletedTests = [];
+    const config = window.IUDEX_CONFIG || {};
+    if (config.mode === 'server') {
+      try {
+        const deletedData = await dataLoader.loadAnalytics('deleted-tests', { limit: 1000 });
+        if (deletedData.available && deletedData.data) {
+          deletedTests = deletedData.data;
+        }
+      } catch (err) {
+        console.warn('Could not fetch deleted tests:', err);
+      }
+    }
+
     // Render all components
     renderSummaryCards(runData.summary);
-    renderTestTable(runData.suites);
+    renderTestTable(runData.suites, deletedTests);
     renderGovernancePanel(runData.governance);
     renderSecurityPanel(runData.security);
     renderGitInfo(runData.metadata?.gitInfo);
@@ -117,9 +131,15 @@ function renderGitInfo(gitInfo) {
   }
 
   section.style.display = 'block';
-  document.getElementById('git-branch').textContent = gitInfo.branch;
-  document.getElementById('git-commit').textContent = gitInfo.commitSha?.substring(0, 7) || 'N/A';
-  document.getElementById('git-message').textContent = gitInfo.commitMessage || 'N/A';
+  document.getElementById('git-branch').textContent = gitInfo.branch || 'N/A';
+
+  // Handle both 'commit' and 'commitSha' field names
+  const commitHash = gitInfo.commit || gitInfo.commitSha;
+  document.getElementById('git-commit').textContent = commitHash?.substring(0, 7) || 'N/A';
+
+  // Handle both 'message' and 'commitMessage' field names
+  const commitMessage = gitInfo.message || gitInfo.commitMessage;
+  document.getElementById('git-message').textContent = commitMessage || 'N/A';
 }
 
 /**
