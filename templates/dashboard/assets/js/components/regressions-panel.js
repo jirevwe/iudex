@@ -35,16 +35,16 @@ export function renderRegressionsPanel(regressions) {
  * Render a single regression card
  */
 function renderRegressionCard(regression) {
-  const failureTime = new Date(regression.failureTimestamp).toLocaleString();
-  const previousPasses = regression.previousPasses || 0;
+  const failureTime = new Date(regression.failure_timestamp).toLocaleString();
+  const previousPasses = regression.previous_passes || 0;
 
   return `
     <div class="regression-card">
       <div class="regression-header">
         <span class="regression-icon">🔴</span>
         <div class="regression-title">
-          <div class="regression-test-name">${escapeHtml(regression.testName)}</div>
-          ${regression.testSlug ? `<div class="regression-slug">${escapeHtml(regression.testSlug)}</div>` : ''}
+          <div class="regression-test-name">${escapeHtml(regression.current_name || regression.test_name)}</div>
+          ${regression.test_slug ? `<div class="regression-slug">${escapeHtml(regression.test_slug)}</div>` : ''}
         </div>
       </div>
       <div class="regression-details">
@@ -56,10 +56,10 @@ function renderRegressionCard(regression) {
           <span class="detail-label">Previous passes:</span>
           <span class="detail-value">${previousPasses}</span>
         </div>
-        ${regression.runId ? `
+        ${regression.run_id ? `
           <div class="regression-detail">
             <span class="detail-label">Run ID:</span>
-            <span class="detail-value">${escapeHtml(regression.runId)}</span>
+            <span class="detail-value">${escapeHtml(regression.run_id)}</span>
           </div>
         ` : ''}
       </div>

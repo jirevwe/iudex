@@ -46,17 +46,17 @@ export function renderFlakyTestsTable(flakyTests) {
  * Render a single flaky test row
  */
 function renderFlakyTestRow(test) {
-  const failureRate = Math.round(test.failureRate * 100);
+  const failureRate = Math.round(test.failure_rate * 100);
   const severityClass = getSeverityClass(failureRate);
-  const lastFailure = test.lastFailure
-    ? new Date(test.lastFailure).toLocaleString()
+  const lastFailure = test.last_failure
+    ? new Date(test.last_failure).toLocaleString()
     : 'N/A';
 
   return `
     <tr class="flaky-test-row ${severityClass}">
       <td class="test-name">
-        <div class="test-name-main">${escapeHtml(test.testName)}</div>
-        ${test.testSlug ? `<div class="test-slug">${escapeHtml(test.testSlug)}</div>` : ''}
+        <div class="test-name-main">${escapeHtml(test.current_name || test.test_name)}</div>
+        ${test.test_slug ? `<div class="test-slug">${escapeHtml(test.test_slug)}</div>` : ''}
       </td>
       <td class="failure-rate">
         <div class="rate-bar-container">
@@ -64,7 +64,7 @@ function renderFlakyTestRow(test) {
           <span class="rate-label">${failureRate}%</span>
         </div>
       </td>
-      <td class="total-runs">${test.totalRuns}</td>
+      <td class="total-runs">${test.total_runs}</td>
       <td class="failures">${test.failures}</td>
       <td class="last-failure">${lastFailure}</td>
     </tr>
