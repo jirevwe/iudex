@@ -9,7 +9,9 @@
     "./server": "./server/index.js",
     "./server/express": "./server/handlers/express.js",
     "./server/fastify": "./server/handlers/fastify.js",
-    "./server/http": "./server/handlers/http.js"
+    "./server/http": "./server/handlers/http.js",
+    "./database/client": "./database/client.js",
+    "./database/repository": "./database/repository.js"
   },
   "bin": {
     "iudex": "./cli/index.js"
@@ -42,6 +44,7 @@
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "dayjs": "^1.11.19",
+    "express": "^5.2.1",
     "fastify-plugin": "^5.0.1",
     "glob": "^11.0.3",
     "joi": "^17.11.0",
