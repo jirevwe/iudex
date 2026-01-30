@@ -71,19 +71,55 @@ export class DataLoader {
     }
 
     try {
-      const params = new URLSearchParams({ type, ...options });
-      const response = await fetch(`${this.baseUrl}/api/analytics?${params}`);
+      // Try new endpoint format first: /api/analytics/flaky-tests
+      const params = new URLSearchParams(options);
+      let response = await fetch(`${this.baseUrl}/api/analytics/${type}?${params}`);
+
+      // Fallback to old format if new format not found: /api/analytics?type=flaky-tests
+      if (!response.ok && response.status === 404) {
+        const oldParams = new URLSearchParams({ type, ...options });
+        response = await fetch(`${this.baseUrl}/api/analytics?${oldParams}`);
+      }
 
       if (!response.ok) {
         console.warn('Analytics not available:', response.statusText);
         return { available: false };
       }
 
-      return await response.json();
+      const result = await response.json();
+
+      // Transform response to expected format { available: true, data: [...] }
+      // API returns: { flakyTests: [...], count: N } or { regressions: [...], count: N }
+      // Dashboard expects: { available: true, data: [...] }
+      const dataKey = this.getDataKeyForType(type);
+      const data = result[dataKey] || [];
+
+      return {
+        available: true,
+        data: data,
+        count: result.count || data.length
+      };
     } catch (error) {
       console.warn('Analytics unavailable:', error);
       return { available: false };
     }
+  }
+
+  /**
+   * Get the data key name for each analytics type
+   * @param {string} type - Analytics type
+   * @returns {string} Data key name
+   */
+  getDataKeyForType(type) {
+    const keyMap = {
+      'flaky-tests': 'flakyTests',
+      'regressions': 'regressions',
+      'daily-stats': 'dailyStats',
+      'endpoint-rates': 'endpointRates',
+      'health-scores': 'healthScores',
+      'deleted-tests': 'deletedTests'
+    };
+    return keyMap[type] || type;
   }
 }
 
