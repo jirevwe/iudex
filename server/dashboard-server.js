@@ -166,13 +166,61 @@ export class DashboardServer {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const cursor = searchParams.get('cursor');
 
-    const result = await this.scanResultsDirectoryPaginated(limit, cursor);
+    // Use database if repository is provided, otherwise read from files
+    const result = this.repository
+      ? await this.listRunsFromDatabase(limit, cursor)
+      : await this.scanResultsDirectoryPaginated(limit, cursor);
 
     res.writeHead(200, {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache'
     });
     res.end(JSON.stringify(result, null, 2));
+  }
+
+  /**
+   * List runs from database
+   */
+  async listRunsFromDatabase(limit, cursor) {
+    const query = `
+      SELECT
+        tr.id,
+        tr.started_at as timestamp,
+        tr.total_tests,
+        tr.passed_tests,
+        tr.failed_tests,
+        tr.skipped_tests,
+        tr.duration_ms,
+        tr.branch,
+        tr.commit_sha
+      FROM test_runs tr
+      ORDER BY tr.started_at DESC
+      LIMIT $1
+    `;
+
+    const result = await this.repository.db.query(query, [limit]);
+    const runs = result.rows.map(row => ({
+      id: row.id.toString(),
+      timestamp: row.timestamp,
+      summary: {
+        total: row.total_tests,
+        passed: row.passed_tests,
+        failed: row.failed_tests,
+        skipped: row.skipped_tests,
+        duration: row.duration_ms
+      },
+      gitInfo: {
+        branch: row.branch,
+        commit: row.commit_sha
+      }
+    }));
+
+    return {
+      runs,
+      latest: runs.length > 0 ? runs[0].id : null,
+      count: runs.length,
+      hasMore: runs.length >= limit
+    };
   }
 
   /**
@@ -282,17 +330,17 @@ export class DashboardServer {
    * API: Get specific run details
    */
   async getRunDetails(runId, res) {
-    const runPath = path.join(path.resolve(this.config.resultsDir), `${runId}.json`);
-
-    if (!fs.existsSync(runPath)) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Run not found' }));
-      return;
-    }
-
     try {
-      const content = fs.readFileSync(runPath, 'utf-8');
-      const data = JSON.parse(content);
+      // Use database if repository is provided, otherwise read from files
+      const data = this.repository
+        ? await this.getRunDetailsFromDatabase(runId)
+        : await this.getRunDetailsFromFile(runId);
+
+      if (!data) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Run not found' }));
+        return;
+      }
 
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -302,6 +350,154 @@ export class DashboardServer {
     } catch (error) {
       return this.serve500(res, error);
     }
+  }
+
+  /**
+   * Get run details from file system
+   */
+  async getRunDetailsFromFile(runId) {
+    const runPath = path.join(path.resolve(this.config.resultsDir), `${runId}.json`);
+
+    if (!fs.existsSync(runPath)) {
+      return null;
+    }
+
+    const content = fs.readFileSync(runPath, 'utf-8');
+    return JSON.parse(content);
+  }
+
+  /**
+   * Get run details from database
+   */
+  async getRunDetailsFromDatabase(runId) {
+    // Get run metadata
+    const runQuery = `
+      SELECT
+        tr.id,
+        tr.started_at,
+        tr.completed_at,
+        tr.total_tests,
+        tr.passed_tests,
+        tr.failed_tests,
+        tr.skipped_tests,
+        tr.duration_ms,
+        tr.branch,
+        tr.commit_sha,
+        tr.commit_message,
+        tr.environment,
+        ts.name as suite_name
+      FROM test_runs tr
+      LEFT JOIN test_suites ts ON tr.suite_id = ts.id
+      WHERE tr.id = $1
+    `;
+
+    const runResult = await this.repository.db.query(runQuery, [parseInt(runId)]);
+
+    if (runResult.rows.length === 0) {
+      return null;
+    }
+
+    const run = runResult.rows[0];
+
+    // Get test results for this run with total duration
+    const testsQuery = `
+      SELECT
+        t.test_slug as id,
+        t.current_name as name,
+        t.suite_name,
+        tr.status,
+        tr.duration_ms as duration,
+        tr.error_message as error,
+        tr.stack_trace,
+        t.deleted_at,
+        (SELECT COALESCE(SUM(duration_ms), 0) FROM test_results WHERE run_id = $1) as total_duration
+      FROM test_results tr
+      JOIN tests t ON tr.test_id = t.id
+      WHERE tr.run_id = $1
+
+      UNION ALL
+
+      -- Include tests that were deleted before or during this run
+      SELECT
+        t.test_slug as id,
+        t.current_name as name,
+        t.suite_name,
+        'deleted' as status,
+        0 as duration,
+        NULL as error,
+        NULL as stack_trace,
+        t.deleted_at,
+        (SELECT COALESCE(SUM(duration_ms), 0) FROM test_results WHERE run_id = $1) as total_duration
+      FROM tests t
+      WHERE t.deleted_at IS NOT NULL
+        AND t.deleted_at <= (SELECT started_at FROM test_runs WHERE id = $1)
+        AND NOT EXISTS (
+          SELECT 1 FROM test_results tr2 WHERE tr2.run_id = $1 AND tr2.test_id = t.id
+        )
+
+      ORDER BY suite_name, name
+    `;
+
+    const testsResult = await this.repository.db.query(testsQuery, [parseInt(runId)]);
+
+    // Get total duration from first row
+    const totalDuration = testsResult.rows.length > 0 ? testsResult.rows[0].total_duration : 0;
+
+    // Group tests by suite
+    const suiteMap = new Map();
+
+    testsResult.rows.forEach(test => {
+      const suiteName = test.suite_name || 'Default Suite';
+
+      if (!suiteMap.has(suiteName)) {
+        suiteMap.set(suiteName, {
+          name: suiteName,
+          tests: []
+        });
+      }
+
+      suiteMap.get(suiteName).tests.push({
+        id: test.id,
+        name: test.name,
+        status: test.status,
+        duration: test.duration || 0,
+        error: test.error || null,
+        errorStack: test.stack_trace || null,
+        deletedAt: test.deleted_at || null
+      });
+    });
+
+    const suites = Array.from(suiteMap.values());
+
+    return {
+      id: run.id.toString(),
+      timestamp: run.started_at,
+      summary: {
+        total: run.total_tests,
+        passed: run.passed_tests,
+        failed: run.failed_tests,
+        skipped: run.skipped_tests,
+        duration: totalDuration || run.duration_ms || 0
+      },
+      suites,
+      metadata: {
+        startedAt: run.started_at,
+        completedAt: run.completed_at,
+        environment: run.environment,
+        gitInfo: {
+          branch: run.branch,
+          commit: run.commit_sha,
+          message: run.commit_message
+        }
+      },
+      governance: {
+        violations: [],
+        warnings: []
+      },
+      security: {
+        findings: []
+      }
+    };
   }
 
   /**
