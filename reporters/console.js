@@ -75,23 +75,26 @@ export class ConsoleReporter {
 
         if (test.status === 'passed') {
             if (this.options.showPassed) {
-                line += chalk.green('✓') + ' ' + chalk.gray(test.name);
+                line += '✅ ' + chalk.gray(test.name);
                 if (test.duration) {
                     line += chalk.gray(` (${test.duration}ms)`);
                 }
                 console.log(line);
             }
         } else if (test.status === 'failed') {
-            line += chalk.red('✗') + ' ' + test.name;
+            line += '❌ ' + test.name;
             if (test.duration) {
                 line += chalk.gray(` (${test.duration}ms)`);
             }
             console.log(line);
         } else if (test.status === 'skipped') {
             if (this.options.showSkipped) {
-                line += chalk.yellow('○') + ' ' + chalk.gray(test.name) + chalk.yellow(' (skipped)');
+                line += '⏭️  ' + chalk.gray(test.name) + chalk.yellow(' (skipped)');
                 console.log(line);
             }
+        } else if (test.status === 'todo') {
+            line += '📝 ' + chalk.gray(test.name) + chalk.dim(' (todo)');
+            console.log(line);
         }
     }
 
@@ -137,6 +140,7 @@ export class ConsoleReporter {
         const passed = summary.passed || 0;
         const failed = summary.failed || 0;
         const skipped = summary.skipped || 0;
+        const todo = summary.todo || 0;
 
         // Build summary line
         let summaryLine = '  ';
@@ -144,7 +148,7 @@ export class ConsoleReporter {
         summaryLine += ' | ';
 
         if (passed > 0) {
-            summaryLine += chalk.green(`✓ Passed: ${passed}`);
+            summaryLine += chalk.green(`✅ Passed: ${passed}`);
         } else {
             summaryLine += chalk.gray(`Passed: ${passed}`);
         }
@@ -152,13 +156,17 @@ export class ConsoleReporter {
         summaryLine += ' | ';
 
         if (failed > 0) {
-            summaryLine += chalk.red(`✗ Failed: ${failed}`);
+            summaryLine += chalk.red(`❌ Failed: ${failed}`);
         } else {
             summaryLine += chalk.gray(`Failed: ${failed}`);
         }
 
         if (skipped > 0) {
-            summaryLine += ' | ' + chalk.yellow(`○ Skipped: ${skipped}`);
+            summaryLine += ' | ' + chalk.yellow(`⏭️  Skipped: ${skipped}`);
+        }
+
+        if (todo > 0) {
+            summaryLine += ' | ' + chalk.yellow(`📝 TODO: ${todo}`);
         }
 
         console.log(summaryLine);
