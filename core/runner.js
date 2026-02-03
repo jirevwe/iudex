@@ -25,6 +25,7 @@ export class TestRunner {
                 passed: 0,
                 failed: 0,
                 skipped: 0,
+                todo: 0,
                 duration: 0
             }
         };
@@ -79,6 +80,7 @@ export class TestRunner {
             passed: 0,
             failed: 0,
             skipped: 0,
+            todo: 0,
             duration: 0,
             error: null
         };
@@ -119,6 +121,9 @@ export class TestRunner {
                 } else if (testResult.status === 'skipped') {
                     suiteResult.skipped++;
                     this.results.summary.skipped++;
+                } else if (testResult.status === 'todo') {
+                    suiteResult.todo++;
+                    this.results.summary.todo++;
                 }
             }
 
@@ -151,6 +156,13 @@ export class TestRunner {
             endpoint: test.endpoint || null,
             method: test.method || null
         };
+
+        // Check if test is a stub (todo)
+        if (test.stub || test.fn === null) {
+            testResult.status = 'todo';
+            testResult.duration = 0;
+            return testResult;
+        }
 
         // Skip a test if marked
         if (test.skip) {
@@ -390,6 +402,7 @@ export class TestRunner {
                 passed: 0,
                 failed: 0,
                 skipped: 0,
+                todo: 0,
                 duration: 0
             }
         };

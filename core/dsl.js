@@ -97,6 +97,7 @@ export function test(name, fn, options = {}) {
         retry: options.retry || 0,
         skip: options.skip || false,
         only: options.only || false,
+        stub: options.stub || false,
         tags: options.tags || [],
         testId: testSlug,  // Always has a slug (auto-generated or explicit)
         endpoint: options.endpoint || null,
@@ -122,6 +123,7 @@ export function afterEach(fn) {
 
 test.skip = (name, fn, options = {}) => test(name, fn, {...options, skip: true});
 test.only = (name, fn, options = {}) => test(name, fn, {...options, only: true});
+test.stub = (name, options = {}) => test(name, null, {...options, stub: true});
 
 export class Expect {
     constructor(value) {

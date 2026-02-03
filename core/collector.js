@@ -10,6 +10,7 @@ export class ResultCollector {
                 passed: 0,
                 failed: 0,
                 skipped: 0,
+                todo: 0,
                 duration: 0,
                 startTime: null,
                 endTime: null
@@ -211,6 +212,24 @@ export class ResultCollector {
     }
 
     /**
+     * Get todo tests
+     */
+    getUnimplementedTests() {
+        const todo = [];
+        for (const suite of this.results.suites) {
+            for (const test of suite.tests) {
+                if (test.status === 'todo') {
+                    todo.push({
+                        suite: suite.name,
+                        test: test.name
+                    });
+                }
+            }
+        }
+        return todo;
+    }
+
+    /**
      * Get tests by tag
      */
     getTestsByTag(tag) {
@@ -375,6 +394,7 @@ export class ResultCollector {
                 passed: 0,
                 failed: 0,
                 skipped: 0,
+                todo: 0,
                 duration: 0,
                 startTime: null,
                 endTime: null
