@@ -448,6 +448,10 @@ select option {
   background: var(--color-warning-bright);
 }
 
+.summary-card.todo::before {
+  background: var(--color-text-tertiary);
+}
+
 .summary-card.total::before {
   background: var(--color-accent-primary);
 }
@@ -861,6 +865,11 @@ select option {
   color: var(--color-text-tertiary);
 }
 
+.status-badge.todo {
+  color: var(--color-text-tertiary);
+  opacity: 0.8;
+}
+
 .test-name {
   font-weight: var(--weight-regular);
   color: var(--color-text-primary);
@@ -888,6 +897,16 @@ select option {
   color: var(--color-text-tertiary);
   font-style: italic;
   margin-left: var(--space-2);
+}
+
+/* Unimplemented tests - subtle styling */
+.test-row.todo-test {
+  opacity: 0.7;
+}
+
+.test-row.todo-test .test-name {
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 
 .test-suite {

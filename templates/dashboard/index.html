@@ -71,6 +71,13 @@
           </div>
         </div>
 
+        <div class="summary-card todo">
+          <div class="card-content">
+            <div class="card-label">TODO</div>
+            <div class="card-value" id="summary-todo">0</div>
+          </div>
+        </div>
+
         <div class="summary-card duration">
           <div class="card-content">
             <div class="card-label">Duration</div>
@@ -129,6 +136,8 @@
                   <option value="failed">Failed Only</option>
                   <option value="passed">Passed Only</option>
                   <option value="skipped">Skipped Only</option>
+                  <option value="todo">TODO Only</option>
+                  <option value="deleted">Deleted Only</option>
                 </select>
                 <button id="expand-all-btn" class="control-btn">Expand All</button>
                 <button id="collapse-all-btn" class="control-btn">Collapse All</button>

@@ -15,6 +15,7 @@ export function renderSummaryCards(summary) {
   document.getElementById('summary-passed').textContent = summary.passed || 0;
   document.getElementById('summary-failed').textContent = summary.failed || 0;
   document.getElementById('summary-skipped').textContent = summary.skipped || 0;
+  document.getElementById('summary-todo').textContent = summary.todo || 0;
 
   // Format duration
   const durationSeconds = Math.round((summary.duration || 0) / 1000);

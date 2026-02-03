@@ -28,6 +28,7 @@ export function renderTestTable(suites, deletedTests = []) {
     const passed = tests.filter(t => t.status === 'passed').length;
     const failed = tests.filter(t => t.status === 'failed').length;
     const skipped = tests.filter(t => t.status === 'skipped').length;
+    const todo = tests.filter(t => t.status === 'todo').length;
     const duration = tests.reduce((sum, t) => sum + (t.duration || 0), 0);
 
     return {
@@ -39,6 +40,7 @@ export function renderTestTable(suites, deletedTests = []) {
       passed,
       failed,
       skipped,
+      todo,
       duration
     };
   });
@@ -109,6 +111,7 @@ function renderTable() {
               ${suite.passed > 0 ? `<span class="suite-stat passed">${suite.passed} passed</span>` : ''}
               ${suite.failed > 0 ? `<span class="suite-stat failed">${suite.failed} failed</span>` : ''}
               ${suite.skipped > 0 ? `<span class="suite-stat skipped">${suite.skipped} skipped</span>` : ''}
+              ${suite.todo > 0 ? `<span class="suite-stat todo">${suite.todo} todo</span>` : ''}
               <span class="suite-stat-duration">${formatDuration(suite.duration)}</span>
             </div>
           </div>
@@ -128,11 +131,15 @@ function renderTable() {
         const deletedClass = isDeleted ? 'deleted-test' : '';
         const deletedLabel = isDeleted ? ' <span class="deleted-label">(deleted)</span>' : '';
 
+        // Check if test is todo
+        const isUnimplemented = test.status === 'todo';
+        const todoClass = isUnimplemented ? 'todo-test' : '';
+
         // Show original status if test was deleted (not the 'deleted' status)
         const displayStatus = test.status === 'deleted' ? 'skipped' : test.status;
 
         html += `
-          <tr class="test-row ${rowClass} ${hiddenClass} ${deletedClass}"
+          <tr class="test-row ${rowClass} ${hiddenClass} ${deletedClass} ${todoClass}"
               data-suite-index="${suiteIndex}"
               data-test-index="${globalTestIndex}">
             <td>
@@ -340,14 +347,28 @@ function setupTestExpandHandlers() {
  * Filter tests and show results with suite headers
  * Per user requirement: "When a user searches it should show the results with their suite headers"
  * @param {string} query - Search query
- * @param {string} status - Status filter ('all', 'passed', 'failed', 'skipped')
+ * @param {string} status - Status filter ('all', 'passed', 'failed', 'skipped', 'todo', 'deleted')
  */
 function filterTests(query, status) {
   filteredSuites = allSuites.map(suite => {
     const filteredTests = suite.tests.filter(test => {
+      // Check if test is deleted
+      const isDeleted = test.status === 'deleted' || test.deletedAt ||
+        (test.id && deletedTestSlugs.has(test.id));
+
       // Status filter
-      if (status !== 'all' && test.status !== status) {
-        return false;
+      if (status !== 'all') {
+        if (status === 'deleted') {
+          // Filter for deleted tests
+          if (!isDeleted) return false;
+        } else if (status === 'todo') {
+          // Filter for todo tests
+          if (test.status !== 'todo') return false;
+        } else {
+          // Filter for other statuses (passed, failed, skipped)
+          // Don't show deleted tests in other filters
+          if (isDeleted || test.status !== status) return false;
+        }
       }
 
       // Search filter
@@ -374,6 +395,7 @@ function filterTests(query, status) {
       passed: filteredTests.filter(t => t.status === 'passed').length,
       failed: filteredTests.filter(t => t.status === 'failed').length,
       skipped: filteredTests.filter(t => t.status === 'skipped').length,
+      todo: filteredTests.filter(t => t.status === 'todo').length,
       duration: filteredTests.reduce((sum, t) => sum + (t.duration || 0), 0)
     };
   }).filter(suite => suite.tests.length > 0); // Only show suites with matching tests
@@ -388,9 +410,11 @@ function filterTests(query, status) {
  */
 function getStatusIcon(status) {
   const icons = {
-    passed: '✓',
-    failed: '✗',
-    skipped: '⊘'
+    passed: '✅',
+    failed: '❌',
+    skipped: '⏭️',
+    todo: '📝',
+    deleted: '🗑️'
   };
   return icons[status] || '';
 }
