@@ -210,6 +210,7 @@ export class PostgresReporter {
           passedTests: summary.passed,
           failedTests: summary.failed,
           skippedTests: summary.skipped || 0,
+          todoTests: summary.todo || 0,
           durationMs: metadata.duration || 0,
           startedAt: metadata.startTime || new Date(),
           completedAt: metadata.endTime || new Date(),
@@ -223,9 +224,9 @@ export class PostgresReporter {
         const runResult = await client.query(
           `INSERT INTO test_runs (
             suite_id, environment, branch, commit_sha, commit_message,
-            status, total_tests, passed_tests, failed_tests, skipped_tests,
+            status, total_tests, passed_tests, failed_tests, skipped_tests, todo_tests,
             duration_ms, started_at, completed_at, triggered_by, run_url
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
           RETURNING id`,
           [
             suiteId,
@@ -238,6 +239,7 @@ export class PostgresReporter {
             runData.passedTests,
             runData.failedTests,
             runData.skippedTests,
+            runData.todoTests,
             runData.durationMs != null ? Math.round(runData.durationMs) : 0,
             runData.startedAt,
             runData.completedAt,
@@ -394,6 +396,7 @@ export class PostgresReporter {
         passedTests: summary.passed,
         failedTests: summary.failed,
         skippedTests: summary.skipped || 0,
+        todoTests: summary.todo || 0,
         durationMs: metadata.duration || 0,
         startedAt: metadata.startTime || new Date(),
         completedAt: metadata.endTime || new Date(),
@@ -406,9 +409,9 @@ export class PostgresReporter {
       const runResult = await client.query(
         `INSERT INTO test_runs (
           suite_id, environment, branch, commit_sha, commit_message,
-          status, total_tests, passed_tests, failed_tests, skipped_tests,
+          status, total_tests, passed_tests, failed_tests, skipped_tests, todo_tests,
           duration_ms, started_at, completed_at, triggered_by, run_url
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING id`,
         [
           suiteId,
@@ -421,6 +424,7 @@ export class PostgresReporter {
           runData.passedTests,
           runData.failedTests,
           runData.skippedTests,
+          runData.todoTests,
           runData.durationMs != null ? Math.round(runData.durationMs) : 0,
           runData.startedAt,
           runData.completedAt,
