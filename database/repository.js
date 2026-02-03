@@ -231,8 +231,8 @@ export class TestRepository {
           status, duration_ms, response_time_ms, status_code,
           error_message, error_type, stack_trace,
           assertions_passed, assertions_failed,
-          request_body, response_body
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+          request_body, response_body, deleted_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
         [
           runId,
           testId,
@@ -252,7 +252,8 @@ export class TestRepository {
           testData.assertionsPassed,
           testData.assertionsFailed,
           testData.requestBody,
-          testData.responseBody
+          testData.responseBody,
+          testData.deletedAt || null
         ]
       );
 

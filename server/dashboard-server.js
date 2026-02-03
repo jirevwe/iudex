@@ -370,7 +370,7 @@ export class DashboardServer {
    * Get run details from database
    */
   async getRunDetailsFromDatabase(runId) {
-    // Get run metadata
+    // Get run metadata including deleted test IDs
     const runQuery = `
       SELECT
         tr.id,
@@ -385,6 +385,7 @@ export class DashboardServer {
         tr.commit_sha,
         tr.commit_message,
         tr.environment,
+        tr.deleted_test_ids,
         ts.name as suite_name
       FROM test_runs tr
       LEFT JOIN test_suites ts ON tr.suite_id = ts.id
@@ -400,8 +401,10 @@ export class DashboardServer {
     const run = runResult.rows[0];
 
     // Get test results for this run with total duration
+    // Note: deleted tests now have synthetic test_results rows with deleted_at set
     const testsQuery = `
       SELECT
+        t.id as test_id,
         t.test_slug as id,
         t.current_name as name,
         t.suite_name,
@@ -409,33 +412,12 @@ export class DashboardServer {
         tr.duration_ms as duration,
         tr.error_message as error,
         tr.stack_trace,
-        t.deleted_at,
+        tr.deleted_at,
         (SELECT COALESCE(SUM(duration_ms), 0) FROM test_results WHERE run_id = $1) as total_duration
       FROM test_results tr
       JOIN tests t ON tr.test_id = t.id
       WHERE tr.run_id = $1
-
-      UNION ALL
-
-      -- Include tests that were deleted before or during this run
-      SELECT
-        t.test_slug as id,
-        t.current_name as name,
-        t.suite_name,
-        'deleted' as status,
-        0 as duration,
-        NULL as error,
-        NULL as stack_trace,
-        t.deleted_at,
-        (SELECT COALESCE(SUM(duration_ms), 0) FROM test_results WHERE run_id = $1) as total_duration
-      FROM tests t
-      WHERE t.deleted_at IS NOT NULL
-        AND t.deleted_at <= (SELECT started_at FROM test_runs WHERE id = $1)
-        AND NOT EXISTS (
-          SELECT 1 FROM test_results tr2 WHERE tr2.run_id = $1 AND tr2.test_id = t.id
-        )
-
-      ORDER BY suite_name, name
+      ORDER BY t.suite_name, t.current_name
     `;
 
     const testsResult = await this.repository.db.query(testsQuery, [parseInt(runId)]);
@@ -463,7 +445,7 @@ export class DashboardServer {
         duration: test.duration || 0,
         error: test.error || null,
         errorStack: test.stack_trace || null,
-        deletedAt: test.deleted_at || null
+        deletedAt: test.deleted_at
       });
     });
 
