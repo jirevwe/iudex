@@ -34,8 +34,10 @@ psql -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_
 psql -d $DB_NAME -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;"
 
 echo ""
-echo "Loading schema..."
-PGPASSWORD=$DB_PASSWORD psql -U $DB_USER -d $DB_NAME -f database/schema.sql
+echo "Running database migrations..."
+# Set DATABASE_URL for node-pg-migrate
+export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@${DB_HOST:-localhost}:${DB_PORT:-5432}/$DB_NAME"
+npm run migrate:up
 
 echo ""
 echo "✅ Database setup complete!"

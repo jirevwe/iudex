@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { DatabaseClient } from './client.js';
 import { TestRepository } from './repository.js';
-import { readFileSync } from 'fs';
+import { runner as migrate } from 'node-pg-migrate';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createLogger } from '../core/logger.js';
@@ -43,17 +43,16 @@ describe('Deletion Detection - Integration Tests', () => {
     await dbClient.connect();
     logger.debug('Connected to PostgreSQL container');
 
-    // Apply schema
-    const schemaPath = join(__dirname, 'schema.sql');
-    const schema = readFileSync(schemaPath, 'utf8');
-    await dbClient.query(schema);
-    logger.debug('Schema applied');
-
-    // Apply migration
-    const migrationPath = join(__dirname, 'migrations', '002_add_deleted_at.sql');
-    const migration = readFileSync(migrationPath, 'utf8');
-    await dbClient.query(migration);
-    logger.debug('Migration applied');
+    // Run migrations using node-pg-migrate
+    const databaseUrl = `postgresql://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/${container.getDatabase()}`;
+    await migrate({
+      databaseUrl,
+      dir: join(__dirname, 'migrations'),
+      direction: 'up',
+      migrationsTable: 'migrations',
+      verbose: false
+    });
+    logger.debug('Migrations applied');
 
     repository = new TestRepository(dbClient);
 

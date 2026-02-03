@@ -138,6 +138,63 @@ program
     });
 
 /**
+ * Database migration command
+ */
+program
+    .command('db:migrate')
+    .description('Run database migrations')
+    .option('-c, --config <path>', 'Path to config file', 'iudex.config.js')
+    .option('--down', 'Rollback last migration')
+    .option('--status', 'Show migration status')
+    .option('--create <name>', 'Create new migration file')
+    .action(async (options) => {
+        try {
+            // Create new migration file doesn't require config
+            if (options.create) {
+                await createMigration(options.create);
+                return;
+            }
+
+            // Load configuration for migration operations
+            const config = await loadConfig(options.config);
+
+            if (!config.database) {
+                logger.error('Database not configured. Add database config to iudex.config.js:');
+                console.log('\nexport default {');
+                console.log('  database: {');
+                console.log('    host: "localhost",');
+                console.log('    port: 5432,');
+                console.log('    database: "my_test_results",');
+                console.log('    user: "myuser",');
+                console.log('    password: "mypass"');
+                console.log('  }');
+                console.log('}\n');
+                process.exit(1);
+            }
+
+            // Run migrations
+            await runMigrations(config.database, {
+                direction: options.down ? 'down' : 'up',
+                status: options.status
+            });
+
+            if (options.status) {
+                console.log('\n✅ Migration status check complete');
+            } else if (options.down) {
+                console.log('\n✅ Migration rolled back successfully');
+            } else {
+                console.log('\n✅ Migrations completed successfully');
+            }
+        } catch (error) {
+            logger.error({
+                error: error.message,
+                stack: error.stack
+            }, 'Migration failed');
+            process.exit(1);
+        }
+    });
+
+/**
  * Load configuration file
  */
 async function loadConfig(configPath) {
@@ -373,6 +430,107 @@ function checkThresholds(collector, config) {
     }
 
     return !failed;
+}
+
+/**
+ * Run database migrations
+ */
+async function runMigrations(dbConfig, options = {}) {
+    const { runner } = await import('node-pg-migrate');
+    const { fileURLToPath } = await import('url');
+    const { dirname, join } = await import('path');
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const migrationsDir = join(__dirname, '../database/migrations');
+
+    // Build database URL
+    const databaseUrl = dbConfig.connectionString ||
+        `postgresql://${dbConfig.user}:${dbConfig.password}@${dbConfig.host || 'localhost'}:${dbConfig.port || 5432}/${dbConfig.database}`;
+
+    logger.info({ migrationsDir }, 'Running migrations');
+
+    const migrationOptions = {
+        databaseUrl,
+        dir: migrationsDir,
+        direction: options.direction || 'up',
+        migrationsTable: 'pgmigrations',
+        verbose: true,
+        log: (msg) => console.log(msg)
+    };
+
+    // For status check, use dry-run
+    if (options.status) {
+        migrationOptions.dryRun = true;
+        console.log('\n📋 Migration Status:\n');
+    } else if (options.direction === 'down') {
+        console.log('\n⚠️  Rolling back last migration...\n');
+        migrationOptions.count = 1; // Only rollback one migration
+    } else {
+        console.log('\n🔄 Running migrations...\n');
+    }
+
+    await runner(migrationOptions);
+}
+
+/**
+ * Create new migration file
+ */
+async function createMigration(name) {
+    const { fileURLToPath } = await import('url');
+    const { dirname, join } = await import('path');
+    const { writeFileSync } = await import('fs');
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const migrationsDir = join(__dirname, '../database/migrations');
+
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${name.replace(/\s+/g, '-').toLowerCase()}.js`;
+    const filePath = join(migrationsDir, fileName);
+
+    const template = `/* eslint-disable camelcase */
+
+/**
+ * Migration: ${name}
+ *
+ * Description: Add your migration description here
+ */
+
+export const shorthands = undefined;
+
+export const up = (pgm) => {
+  // Add your migration logic here
+  // Examples:
+  //
+  // Add column:
+  // pgm.addColumn('table_name', {
+  //   column_name: { type: 'varchar(255)', notNull: true }
+  // });
+  //
+  // Create table:
+  // pgm.createTable('table_name', {
+  //   id: 'id',
+  //   name: { type: 'varchar(255)', notNull: true },
+  //   created_at: { type: 'timestamp', default: pgm.func('CURRENT_TIMESTAMP') }
+  // });
+  //
+  // Create index:
+  // pgm.createIndex('table_name', 'column_name');
+};
+
+export const down = (pgm) => {
+  // Add your rollback logic here (optional - auto-inferred for most operations)
+};
+`;
+
+    writeFileSync(filePath, template, 'utf8');
+
+    console.log(`\n✅ Migration created: ${fileName}`);
+    console.log(`\nEdit the file at:`);
+    console.log(`  ${filePath}\n`);
+    console.log('Then run migrations with:');
+    console.log('  npx iudex db:migrate\n');
 }
 
 // Parse command line arguments

@@ -30,7 +30,96 @@ export class PostgresReporter {
 
     this.dbClient = new DatabaseClient(this.config);
     await this.dbClient.connect();
+
+    // Check if migrations are needed
+    const needsMigration = await this.checkMigrationsNeeded();
+    if (needsMigration) {
+      if (this.config.autoMigrate === true) {
+        logger.info('Database not initialized. Running migrations automatically...');
+        await this.runMigrations();
+        logger.info('✅ Database migrations completed');
+      } else {
+        throw new Error(
+          '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+          '  Database not initialized. Migrations required.\n' +
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+          '  Run migrations:\n' +
+          '    npx iudex db:migrate\n\n' +
+          '  Or enable auto-migration in iudex.config.js:\n' +
+          '    database: {\n' +
+          '      autoMigrate: true,  // ⚠️  Not recommended for production\n' +
+          '      // ... other config\n' +
+          '    }\n\n' +
+          '  Check migration status:\n' +
+          '    npx iudex db:migrate --status\n\n' +
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+        );
+      }
+    }
+
     this.repository = new TestRepository(this.dbClient);
+  }
+
+  /**
+   * Check if database migrations are needed
+   * @returns {Promise<boolean>}
+   */
+  async checkMigrationsNeeded() {
+    try {
+      // Check if migrations table exists
+      const result = await this.dbClient.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public'
+          AND table_name = 'migrations'
+        ) as exists;
+      `);
+
+      if (!result.rows[0].exists) {
+        return true; // No migration table = needs migration
+      }
+
+      // Check if test_runs table exists (main indicator)
+      const tableResult = await this.dbClient.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public'
+          AND table_name = 'test_runs'
+        ) as exists;
+      `);
+
+      return !tableResult.rows[0].exists;
+    } catch (error) {
+      logger.debug({ error: error.message }, 'Error checking migration status');
+      return true; // Assume needs migration on error
+    }
+  }
+
+  /**
+   * Run database migrations
+   * @returns {Promise<void>}
+   */
+  async runMigrations() {
+    const { runner } = await import('node-pg-migrate');
+    const { fileURLToPath } = await import('url');
+    const { dirname, join } = await import('path');
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const migrationsDir = join(__dirname, '../database/migrations');
+
+    // Build database URL
+    const databaseUrl = this.config.connectionString ||
+      `postgresql://${this.config.user}:${this.config.password}@${this.config.host || 'localhost'}:${this.config.port || 5432}/${this.config.database}`;
+
+    await runner({
+      databaseUrl,
+      dir: migrationsDir,
+      direction: 'up',
+      migrationsTable: 'migrations',
+      verbose: false,
+      log: (msg) => logger.debug(msg)
+    });
   }
 
   /**
@@ -210,6 +299,40 @@ export class PostgresReporter {
           );
 
           if (deletedTests.length > 0) {
+            // Insert synthetic test_results for deleted tests
+            for (const deletedTest of deletedTests) {
+              await this.repository.createTestResult(runId, {
+                testName: deletedTest.current_name,
+                testDescription: null,
+                testSlug: deletedTest.test_slug,
+                suiteName: deletedTest.suite_name,
+                testFile: null,
+                endpoint: null,
+                httpMethod: null,
+                status: 'deleted',
+                durationMs: 0,
+                responseTimeMs: null,
+                statusCode: null,
+                errorMessage: null,
+                errorType: null,
+                stackTrace: null,
+                assertionsPassed: null,
+                assertionsFailed: null,
+                requestBody: null,
+                responseBody: null,
+                deletedAt: new Date()
+              }, client);
+            }
+
+            // Update the run record with deleted test IDs (for backward compatibility)
+            const deletedTestIds = deletedTests.map(t => t.id);
+            await client.query(
+              `UPDATE test_runs
+               SET deleted_test_ids = $1::jsonb
+               WHERE id = $2`,
+              [JSON.stringify(deletedTestIds), runId]
+            );
+
             logger.info({ count: deletedTests.length, tests: deletedTests.map(t => ({ name: t.current_name, slug: t.test_slug })) }, `\n🗑️  Deleted tests detected: ${deletedTests.length}`);
             deletedTests.forEach(test => {
               logger.info(`   - ${test.current_name} (${test.test_slug})`);
@@ -402,6 +525,40 @@ export class PostgresReporter {
           );
 
           if (deletedTests.length > 0) {
+            // Insert synthetic test_results for deleted tests
+            for (const deletedTest of deletedTests) {
+              await this.repository.createTestResult(runId, {
+                testName: deletedTest.current_name,
+                testDescription: null,
+                testSlug: deletedTest.test_slug,
+                suiteName: deletedTest.suite_name,
+                testFile: null,
+                endpoint: null,
+                httpMethod: null,
+                status: 'deleted',
+                durationMs: 0,
+                responseTimeMs: null,
+                statusCode: null,
+                errorMessage: null,
+                errorType: null,
+                stackTrace: null,
+                assertionsPassed: null,
+                assertionsFailed: null,
+                requestBody: null,
+                responseBody: null,
+                deletedAt: new Date()
+              }, client);
+            }
+
+            // Update the run record with deleted test IDs (for backward compatibility)
+            const deletedTestIds = deletedTests.map(t => t.id);
+            await client.query(
+              `UPDATE test_runs
+               SET deleted_test_ids = $1::jsonb
+               WHERE id = $2`,
+              [JSON.stringify(deletedTestIds), runId]
+            );
+
             logger.info({ count: deletedTests.length, tests: deletedTests.map(t => ({ name: t.current_name, slug: t.test_slug })) }, `\n🗑️  Deleted tests detected: ${deletedTests.length}`);
             deletedTests.forEach(test => {
               logger.info(`   - ${test.current_name} (${test.test_slug})`);
