@@ -36,14 +36,16 @@ CREATE TABLE IF NOT EXISTS test_runs (
     passed_tests INTEGER NOT NULL DEFAULT 0,
     failed_tests INTEGER NOT NULL DEFAULT 0,
     skipped_tests INTEGER NOT NULL DEFAULT 0,
+    todo_tests INTEGER NOT NULL DEFAULT 0,
     duration_ms INTEGER NOT NULL DEFAULT 0,
     started_at TIMESTAMP NOT NULL,
     completed_at TIMESTAMP,
     triggered_by VARCHAR(255), -- GitHub username or 'CI'
     run_url TEXT, -- GitHub Actions run URL
+    deleted_test_ids JSONB DEFAULT '[]'::jsonb, -- Array of test IDs that were deleted/missing in this specific run
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT valid_test_counts CHECK (
-        total_tests = passed_tests + failed_tests + skipped_tests
+        total_tests = passed_tests + failed_tests + skipped_tests + todo_tests
     )
 );
 
@@ -105,7 +107,7 @@ CREATE TABLE IF NOT EXISTS  test_results (
     http_method VARCHAR(10),
 
     -- Result data
-    status VARCHAR(20) NOT NULL, -- 'passed', 'failed', 'skipped', 'error'
+    status VARCHAR(20) NOT NULL, -- 'passed', 'failed', 'skipped', 'todo', 'deleted'
     duration_ms INTEGER NOT NULL DEFAULT 0,
     response_time_ms INTEGER,
     status_code INTEGER,
@@ -116,6 +118,9 @@ CREATE TABLE IF NOT EXISTS  test_results (
     assertions_failed INTEGER,
     request_body TEXT,
     response_body TEXT,
+
+    -- Deletion tracking (per-run, immutable)
+    deleted_at TIMESTAMP DEFAULT NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
@@ -130,6 +135,7 @@ CREATE INDEX IF NOT EXISTS idx_test_runs_branch ON test_runs(branch);
 CREATE INDEX IF NOT EXISTS idx_test_runs_status ON test_runs(status);
 CREATE INDEX IF NOT EXISTS idx_test_runs_started_at ON test_runs(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_test_runs_suite_id ON test_runs(suite_id);
+CREATE INDEX IF NOT EXISTS idx_test_runs_deleted_test_ids ON test_runs USING gin (deleted_test_ids);
 
 CREATE INDEX IF NOT EXISTS idx_tests_hash ON tests(test_hash);
 CREATE INDEX IF NOT EXISTS idx_tests_slug ON tests(test_slug);
@@ -147,6 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_test_results_test_id ON test_results(test_id);
 CREATE INDEX IF NOT EXISTS idx_test_results_test_hash ON test_results(test_hash);
 CREATE INDEX IF NOT EXISTS idx_test_results_status ON test_results(status);
 CREATE INDEX IF NOT EXISTS idx_test_results_endpoint ON test_results(endpoint);
+CREATE INDEX IF NOT EXISTS idx_test_results_deleted_at ON test_results(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_test_results_created_at ON test_results(created_at DESC);
 
 -- Trigger to update updated_at timestamp
