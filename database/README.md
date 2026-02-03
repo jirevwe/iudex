@@ -13,6 +13,85 @@ PostgreSQL persistence layer for test results with evolution tracking and regres
 
 ## Quick Start
 
+There are two ways to set up the database: **automatic** (easiest) or **manual** (production-recommended).
+
+### Setup Option 1: Automatic Migration (Development)
+
+For quick local development, enable auto-migration:
+
+```javascript
+// iudex.config.js
+export default {
+  reporters: ['postgres'],
+  database: {
+    host: 'localhost',
+    port: 5432,
+    database: 'my_test_results',
+    user: 'myuser',
+    password: 'mypass',
+    autoMigrate: true  // Auto-run migrations on first connection
+  }
+};
+```
+
+Then just run your tests:
+```bash
+npx iudex run
+```
+
+Migrations will run automatically on first connection! ✨
+
+**⚠️ Not recommended for production** - use manual migration instead.
+
+### Setup Option 2: Manual Migration (Production)
+
+For production or when you want explicit control:
+
+1. **Configure database** (without autoMigrate):
+```javascript
+// iudex.config.js
+export default {
+  reporters: ['postgres'],
+  database: {
+    host: 'localhost',
+    port: 5432,
+    database: 'my_test_results',
+    user: 'myuser',
+    password: 'mypass'
+  }
+};
+```
+
+2. **Run migrations explicitly**:
+```bash
+npx iudex db:migrate
+```
+
+3. **Run your tests**:
+```bash
+npx iudex run
+```
+
+### Migration Commands
+
+```bash
+# Run all pending migrations
+npx iudex db:migrate
+
+# Check migration status (dry-run)
+npx iudex db:migrate --status
+
+# Rollback last migration
+npx iudex db:migrate --down
+
+# Create a new migration file
+npx iudex db:migrate --create add_new_feature
+```
+
+---
+
+## Detailed Setup
+
 ### 1. Install PostgreSQL
 
 **macOS (Homebrew):**
@@ -59,21 +138,31 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO iudex_user;
 \q
 ```
 
-### 3. Initialize Schema
+### 3. Run Migrations
 
+**Using iudex CLI** (recommended):
 ```bash
-# From project root
-psql -U iudex_user -d iudex_test_results -f database/schema.sql
+npx iudex db:migrate
 ```
 
-Or using environment variables:
+**Or using npm scripts directly**:
 ```bash
-PGPASSWORD=your_password_here psql \
-  -h localhost \
-  -U iudex_user \
-  -d iudex_test_results \
-  -f database/schema.sql
+# Set database connection URL
+export DATABASE_URL="postgresql://iudex_user:your_password_here@localhost:5432/iudex_test_results"
+
+# Run all migrations
+npm run migrate:up
+
+# Check migration status
+npm run migrate:status
 ```
+
+The project uses [node-pg-migrate](https://github.com/salsita/node-pg-migrate) for database migrations. This provides:
+- Version-controlled schema changes
+- Automatic rollback support
+- Migration history tracking
+- Better CI/CD integration
+- Automatic first-run setup (optional)
 
 ### 4. Configure Iudex
 
@@ -116,6 +205,85 @@ npx iudex run
 ```
 
 Test results will be persisted to PostgreSQL automatically!
+
+## When to Use Each Setup Method
+
+### Use Auto-Migration (autoMigrate: true) when:
+- ✅ Local development
+- ✅ Quick prototyping
+- ✅ Developer onboarding
+- ✅ Integration tests (with Testcontainers)
+
+### Use Manual Migration (npx iudex db:migrate) when:
+- ✅ Production deployments
+- ✅ Staging environments
+- ✅ CI/CD pipelines (explicit control)
+- ✅ Team environments (coordinate schema changes)
+- ✅ Database migration reviews required
+
+## Managing Migrations
+
+### Creating New Migrations
+
+**Using iudex CLI**:
+```bash
+npx iudex db:migrate --create add_new_feature
+```
+
+**Or using npm scripts**:
+```bash
+npm run migrate:create add_new_feature
+```
+
+This creates: `database/migrations/TIMESTAMP_add-new-feature.js`
+
+Edit the generated file to add your schema changes:
+
+```javascript
+exports.up = (pgm) => {
+  // Add your changes here
+  pgm.addColumn('tests', {
+    new_field: { type: 'varchar(255)' }
+  });
+};
+
+exports.down = (pgm) => {
+  // Rollback changes (optional - auto-inferred for most operations)
+  pgm.dropColumn('tests', 'new_field');
+};
+```
+
+### Running Migrations
+
+```bash
+# Run all pending migrations
+npm run migrate:up
+
+# Check migration status (dry-run)
+npm run migrate:status
+
+# Rollback last migration
+npm run migrate:down
+
+# Rollback all migrations
+npm run migrate:down -- 0
+```
+
+### Migration Best Practices
+
+1. **One logical change per migration** - Keep migrations focused
+2. **Test both up and down** - Ensure rollbacks work
+3. **Never modify applied migrations** - Create new migrations instead
+4. **Use transactions** - Enabled by default for safety
+5. **Add comments** - Document complex changes
+
+### Migration Files
+
+Current migrations:
+- `1704067200000_create-core-tables.js` - Core schema (test_suites, test_runs, tests, etc.)
+- `1704067300000_create-analytics-views.js` - Analytics views (flaky tests, regressions, etc.)
+- `1704067400000_add-sample-data-and-comments.js` - Sample data and documentation
+- `1704067500000_add-deleted-tests-tracking.js` - Deleted tests tracking feature
 
 ## Database Schema
 
@@ -265,7 +433,85 @@ SELECT
   pg_size_pretty(pg_database_size('iudex_test_results')) as size;
 ```
 
+## Example Configuration
+
+Full configuration example:
+
+```javascript
+// iudex.config.js
+export default {
+  // Test patterns
+  testMatch: ['tests/**/*.test.js'],
+
+  // Reporters
+  reporters: [
+    'console',
+    'postgres'  // Enable PostgreSQL reporter
+  ],
+
+  // Database configuration
+  database: {
+    // Connection settings
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    database: process.env.DB_NAME || 'iudex_test_results',
+    user: process.env.DB_USER || 'iudex_user',
+    password: process.env.DB_PASSWORD,
+
+    // Migration settings
+    autoMigrate: process.env.NODE_ENV === 'development',  // Auto-migrate in dev only
+
+    // Optional: Connection pooling
+    poolSize: 10,
+    idleTimeout: 30000,
+    connectionTimeout: 2000,
+
+    // Optional: SSL
+    ssl: process.env.DB_SSL === 'true' ? {
+      rejectUnauthorized: false
+    } : false
+  }
+};
+```
+
 ## Troubleshooting
+
+### Migration Issues
+
+**Error: "Database not initialized. Migrations required."**
+
+Run migrations:
+```bash
+npx iudex db:migrate
+```
+
+Or enable auto-migration in config:
+```javascript
+database: {
+  autoMigrate: true  // For development only
+}
+```
+
+**Error: "Can't determine timestamp for..."**
+
+Make sure your migrations directory only contains migration files (*.js). Remove any `.md`, `.txt`, or config files.
+
+**Migration stuck or failed**
+
+Check migration status:
+```bash
+npx iudex db:migrate --status
+```
+
+If a migration failed halfway, you may need to manually clean up and retry. Connect to your database:
+```bash
+psql -d your_database
+```
+
+Check migrations table:
+```sql
+SELECT * FROM migrations ORDER BY run_on DESC;
+```
 
 ### Connection Issues
 
@@ -362,16 +608,25 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Database
-        run: |
-          PGPASSWORD=test_password psql -h localhost -U iudex_user -d iudex_test_results -f database/schema.sql
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Database Migrations
+        run: npx iudex db:migrate
+        env:
+          # Database config from iudex.config.js will be used
 
       - name: Run Tests
+        run: npx iudex run
         env:
           DB_HOST: localhost
           DB_USER: iudex_user
           DB_PASSWORD: test_password
-        run: npm test
 ```
 
 ## Testing
@@ -411,7 +666,7 @@ npm test database/deletion-detection.integration.test.js
 The integration tests will:
 1. ✅ Automatically download PostgreSQL Docker image (first run only)
 2. ✅ Start a PostgreSQL container
-3. ✅ Apply schema and migrations
+3. ✅ Apply all migrations using node-pg-migrate
 4. ✅ Run all tests
 5. ✅ Stop and clean up the container
 
