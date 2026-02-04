@@ -3,28 +3,55 @@
   "version": "1.0.0",
   "type": "module",
   "description": "JavaScript API testing framework with built-in governance and security checks",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.js",
-    "./server": "./server/index.js",
-    "./server/express": "./server/handlers/express.js",
-    "./server/fastify": "./server/handlers/fastify.js",
-    "./server/http": "./server/handlers/http.js",
-    "./database/client": "./database/client.js",
-    "./database/repository": "./database/repository.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js"
+    },
+    "./server/express": {
+      "types": "./dist/server/handlers/express.d.ts",
+      "import": "./dist/server/handlers/express.js"
+    },
+    "./server/fastify": {
+      "types": "./dist/server/handlers/fastify.d.ts",
+      "import": "./dist/server/handlers/fastify.js"
+    },
+    "./server/http": {
+      "types": "./dist/server/handlers/http.d.ts",
+      "import": "./dist/server/handlers/http.js"
+    },
+    "./database/client": {
+      "types": "./dist/database/client.d.ts",
+      "import": "./dist/database/client.js"
+    },
+    "./database/repository": {
+      "types": "./dist/database/repository.d.ts",
+      "import": "./dist/database/repository.js"
+    }
   },
   "bin": {
-    "iudex": "./cli/index.js"
+    "iudex": "./dist/cli/index.js"
   },
   "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit",
-    "test:integration": "node cli/index.js run",
-    "init": "node cli/index.js init",
-    "validate": "node cli/index.js validate",
-    "report": "node cli/index.js report",
-    "publish-results": "node cli/index.js publish",
-    "dev": "node --watch cli/index.js run",
+    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=src/",
+    "test:integration": "node dist/cli/index.js run",
+    "init": "node dist/cli/index.js init",
+    "validate": "node dist/cli/index.js validate",
+    "report": "node dist/cli/index.js report",
+    "publish-results": "node dist/cli/index.js publish",
+    "dev": "npm run build && node --watch dist/cli/index.js run",
     "migrate": "node-pg-migrate",
     "migrate:create": "node-pg-migrate create",
     "migrate:up": "node-pg-migrate up",
@@ -66,11 +93,21 @@
   "devDependencies": {
     "@playwright/test": "^1.58.0",
     "@testcontainers/postgresql": "^11.11.0",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/lodash": "^4.17.23",
+    "@types/node": "^25.2.0",
+    "@types/pg": "^8.16.0",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "eslint": "^8.54.0",
     "jest": "^29.7.0",
     "node-pg-migrate": "^8.0.4",
     "playwright": "^1.58.0",
-    "testcontainers": "^11.11.0"
+    "testcontainers": "^11.11.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"

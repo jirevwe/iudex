@@ -1,19 +1,28 @@
+/** @type {import('jest').Config} */
 export default {
   testEnvironment: 'node',
-  transform: {},
-  testMatch: ['**/*.test.js', '!**/node_modules/**', '!**/examples/**'],
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: 'tsconfig.test.json',
+      },
+    ],
+  },
+  testMatch: [
+    '<rootDir>/src/**/*.test.ts',
+  ],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
-    'core/**/*.js',
-    '!core/**/*.test.js',
-    'governance/**/*.js',
-    '!governance/**/*.test.js',
-    'security/**/*.js',
-    '!security/**/*.test.js',
-    'reporters/**/*.js',
-    '!reporters/**/*.test.js',
-    'cli/**/*.js',
-    '!cli/**/*.test.js'
+    'src/**/*.ts',
+    '!src/**/*.test.ts',
+    '!src/**/*.d.ts',
   ],
   coverageDirectory: 'coverage',
-  verbose: true
+  verbose: true,
 };
