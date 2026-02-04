@@ -6,7 +6,6 @@ import { pathToFileURL } from 'url';
 import { existsSync } from 'fs';
 import { resolve, join } from 'path';
 import { TestRunner } from '../core/runner.js';
-import { ResultCollector } from '../core/collector.js';
 import { ConsoleReporter } from '../reporters/console.js';
 import { JsonReporter } from '../reporters/json.js';
 import { PostgresReporter } from '../reporters/postgres.js';
@@ -26,7 +25,7 @@ program
  * Run command - Execute tests
  */
 program
-    .command('run [pattern]')
+    .command('run [patterns...]')
     .description('Run API tests')
     .option('-c, --config <path>', 'Path to config file', 'iudex.config.js')
     .option('-t, --timeout <ms>', 'Test timeout in milliseconds')
@@ -34,7 +33,7 @@ program
     .option('--bail', 'Stop after first failure')
     .option('--verbose', 'Verbose output')
     .option('--no-colors', 'Disable colored output')
-    .action(async (pattern, options) => {
+    .action(async (patterns, options) => {
         try {
             // Load configuration
             const config = await loadConfig(options.config);
@@ -45,7 +44,10 @@ program
             if (options.bail) config.bail = true;
 
             // Load test files
-            const testFiles = await loadTestFiles(pattern || config.testMatch);
+            // If patterns provided (could be shell-expanded files or glob patterns), use them
+            // Otherwise fall back to config.testMatch
+            const testPatterns = patterns && patterns.length > 0 ? patterns : config.testMatch;
+            const testFiles = await loadTestFiles(testPatterns);
 
             if (testFiles.length === 0) {
                 logger.error('No test files found');
