@@ -21,7 +21,7 @@ export class DataLoader {
       if (limit) params.append('limit', limit);
       if (cursor) params.append('cursor', cursor);
 
-      const response = await fetch(`${this.baseUrl}/api/runs?${params}`);
+      const response = await fetch(`${this.baseUrl}/api/runs?${params}`, { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`Failed to load runs: ${response.statusText}`);
       }
@@ -43,7 +43,7 @@ export class DataLoader {
    */
   async loadRun(runId) {
     if (this.mode === 'server') {
-      const response = await fetch(`${this.baseUrl}/api/run/${runId}`);
+      const response = await fetch(`${this.baseUrl}/api/run/${runId}`, { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`Failed to load run ${runId}: ${response.statusText}`);
       }
