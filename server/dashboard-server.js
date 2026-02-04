@@ -190,6 +190,7 @@ export class DashboardServer {
         tr.passed_tests,
         tr.failed_tests,
         tr.skipped_tests,
+        tr.todo_tests,
         tr.duration_ms,
         tr.branch,
         tr.commit_sha
@@ -207,6 +208,7 @@ export class DashboardServer {
         passed: row.passed_tests,
         failed: row.failed_tests,
         skipped: row.skipped_tests,
+        todo: row.todo_tests,
         duration: row.duration_ms
       },
       gitInfo: {
@@ -380,6 +382,7 @@ export class DashboardServer {
         tr.passed_tests,
         tr.failed_tests,
         tr.skipped_tests,
+        tr.todo_tests,
         tr.duration_ms,
         tr.branch,
         tr.commit_sha,
@@ -459,6 +462,7 @@ export class DashboardServer {
         passed: run.passed_tests,
         failed: run.failed_tests,
         skipped: run.skipped_tests,
+        todo: run.todo_tests,
         duration: totalDuration || run.duration_ms || 0
       },
       suites,
