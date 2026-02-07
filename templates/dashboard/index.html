@@ -123,8 +123,22 @@
           <!-- Tests Tab -->
           <div id="tab-tests" class="tab-panel active">
             <div class="panel-header">
-              <h2>Test Results</h2>
               <div class="panel-controls">
+                <!-- View Toggle -->
+                <div class="view-toggle" role="group" aria-label="View mode">
+                  <button id="view-grouped-btn" class="view-toggle-btn active" data-view="grouped" title="Grouped View">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M3 6h18M3 12h18M3 18h18"/>
+                      <path d="M8 6v12"/>
+                    </svg>
+                  </button>
+                  <button id="view-spreadsheet-btn" class="view-toggle-btn" data-view="spreadsheet" title="Spreadsheet View">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+                    </svg>
+                  </button>
+                </div>
                 <input
                   type="search"
                   id="test-search"
@@ -139,11 +153,37 @@
                   <option value="todo">TODO Only</option>
                   <option value="deleted">Deleted Only</option>
                 </select>
-                <button id="expand-all-btn" class="control-btn">Expand All</button>
-                <button id="collapse-all-btn" class="control-btn">Collapse All</button>
+                <!-- Grouped view controls -->
+                <div id="grouped-controls" class="view-specific-controls">
+                  <button id="expand-all-btn" class="control-btn">Expand All</button>
+                  <button id="collapse-all-btn" class="control-btn">Collapse All</button>
+                </div>
+                <!-- Spreadsheet view controls -->
+                <div id="spreadsheet-controls" class="view-specific-controls" style="display: none;">
+                  <div class="column-visibility-dropdown">
+                    <button id="column-visibility-btn" class="control-btn">
+                      Columns
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </button>
+                    <div id="column-visibility-menu" class="column-visibility-menu">
+                      <!-- Populated by JavaScript -->
+                    </div>
+                  </div>
+                  <button id="export-csv-btn" class="control-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Export CSV
+                  </button>
+                </div>
               </div>
             </div>
 
+            <!-- Grouped View Container -->
             <div id="test-table-container" class="table-container">
               <table class="test-table">
                 <thead>
@@ -154,6 +194,18 @@
                   </tr>
                 </thead>
                 <tbody id="test-table-body">
+                  <!-- Populated by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Spreadsheet View Container -->
+            <div id="spreadsheet-container" class="table-container spreadsheet-container" style="display: none;">
+              <table class="spreadsheet-table">
+                <thead id="spreadsheet-table-head">
+                  <!-- Populated by JavaScript -->
+                </thead>
+                <tbody id="spreadsheet-table-body">
                   <!-- Populated by JavaScript -->
                 </tbody>
               </table>
@@ -203,6 +255,7 @@
   <script type="module" src="assets/js/data-loader.js"></script>
   <script type="module" src="assets/js/components/summary-cards.js"></script>
   <script type="module" src="assets/js/components/test-table.js"></script>
+  <script type="module" src="assets/js/components/spreadsheet-table.js"></script>
   <script type="module" src="assets/js/components/governance-panel.js"></script>
   <script type="module" src="assets/js/components/security-panel.js"></script>
   <script type="module" src="assets/js/components/analytics-overview.js"></script>

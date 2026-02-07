@@ -107,12 +107,12 @@ function getLoggerInstance(): Logger {
  * Persists test results to PostgreSQL with evolution tracking
  */
 export class PostgresReporter {
-  private config: PostgresReporterConfig;
-  private dbClient: DatabaseClient | null = null;
-  private repository: TestRepository | null = null;
-  private enabled: boolean;
-  private batchSize: number;
-  private enableBatching: boolean;
+  public config: PostgresReporterConfig;
+  public dbClient: DatabaseClient | null = null;
+  public repository: TestRepository | null = null;
+  public enabled: boolean;
+  public batchSize: number;
+  public enableBatching: boolean;
 
   constructor(config: PostgresReporterConfig = {}) {
     this.config = config;

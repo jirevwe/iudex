@@ -6,6 +6,7 @@
 import { createDataLoader } from './data-loader.js';
 import { renderSummaryCards } from './components/summary-cards.js';
 import { renderTestTable } from './components/test-table.js';
+import { renderSpreadsheetTable, applyGlobalFilter, toggleColumn, getVisibleColumns, getColumns, exportToCSV } from './components/spreadsheet-table.js';
 import { renderGovernancePanel } from './components/governance-panel.js';
 import { renderSecurityPanel } from './components/security-panel.js';
 import { renderAnalyticsOverview, showAnalyticsLoading, showAnalyticsUnavailable } from './components/analytics-overview.js';
@@ -17,6 +18,9 @@ import { renderEndpointRatesTable } from './components/endpoint-rates-table.js';
 let dataLoader;
 let currentRunId = null;
 let runsIndex = null;
+let currentView = 'grouped'; // 'grouped' | 'spreadsheet'
+let currentSuitesData = null;
+let currentDeletedTests = [];
 
 /**
  * Initialize dashboard
@@ -80,12 +84,20 @@ async function loadRun(runId) {
       }
     }
 
+    // Cache data for view switching
+    currentSuitesData = runData.suites;
+    currentDeletedTests = deletedTests;
+
     // Render all components
     renderSummaryCards(runData.summary);
     renderTestTable(runData.suites, deletedTests);
+    renderSpreadsheetTable(runData.suites, deletedTests);
     renderGovernancePanel(runData.governance);
     renderSecurityPanel(runData.security);
     renderGitInfo(runData.metadata?.gitInfo);
+
+    // Render column visibility menu
+    renderColumnVisibilityMenu();
 
     hideLoading();
   } catch (error) {
@@ -195,6 +207,63 @@ function setupEventListeners() {
       await loadAnalytics();
     });
   }
+
+  // View toggle buttons
+  const viewGroupedBtn = document.getElementById('view-grouped-btn');
+  const viewSpreadsheetBtn = document.getElementById('view-spreadsheet-btn');
+
+  if (viewGroupedBtn) {
+    viewGroupedBtn.addEventListener('click', () => switchView('grouped'));
+  }
+  if (viewSpreadsheetBtn) {
+    viewSpreadsheetBtn.addEventListener('click', () => switchView('spreadsheet'));
+  }
+
+  // Column visibility dropdown toggle
+  const columnVisibilityBtn = document.getElementById('column-visibility-btn');
+  const columnVisibilityMenu = document.getElementById('column-visibility-menu');
+
+  if (columnVisibilityBtn && columnVisibilityMenu) {
+    columnVisibilityBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      columnVisibilityMenu.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!columnVisibilityMenu.contains(e.target) && e.target !== columnVisibilityBtn) {
+        columnVisibilityMenu.classList.remove('open');
+      }
+    });
+  }
+
+  // Export CSV button
+  const exportCsvBtn = document.getElementById('export-csv-btn');
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener('click', () => {
+      exportToCSV();
+    });
+  }
+
+  // Wire search/filter to both views
+  const searchInput = document.getElementById('test-search');
+  const filterSelect = document.getElementById('test-filter');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      if (currentView === 'spreadsheet') {
+        applyGlobalFilter(searchInput.value, filterSelect?.value || 'all');
+      }
+    });
+  }
+
+  if (filterSelect) {
+    filterSelect.addEventListener('change', () => {
+      if (currentView === 'spreadsheet') {
+        applyGlobalFilter(searchInput?.value || '', filterSelect.value);
+      }
+    });
+  }
 }
 
 /**
@@ -210,6 +279,70 @@ function switchTab(tabName) {
   // Update tab panels
   document.querySelectorAll('.tab-panel').forEach(panel => {
     panel.classList.toggle('active', panel.id === `tab-${tabName}`);
+  });
+}
+
+/**
+ * Switch between grouped and spreadsheet views
+ * @param {string} view - 'grouped' | 'spreadsheet'
+ */
+function switchView(view) {
+  currentView = view;
+
+  // Update toggle buttons
+  document.getElementById('view-grouped-btn')?.classList.toggle('active', view === 'grouped');
+  document.getElementById('view-spreadsheet-btn')?.classList.toggle('active', view === 'spreadsheet');
+
+  // Show/hide view containers
+  const groupedContainer = document.getElementById('test-table-container');
+  const spreadsheetContainer = document.getElementById('spreadsheet-container');
+  const groupedControls = document.getElementById('grouped-controls');
+  const spreadsheetControls = document.getElementById('spreadsheet-controls');
+
+  if (groupedContainer) groupedContainer.style.display = view === 'grouped' ? 'block' : 'none';
+  if (spreadsheetContainer) spreadsheetContainer.style.display = view === 'spreadsheet' ? 'block' : 'none';
+  if (groupedControls) groupedControls.style.display = view === 'grouped' ? 'flex' : 'none';
+  if (spreadsheetControls) spreadsheetControls.style.display = view === 'spreadsheet' ? 'flex' : 'none';
+
+  // Apply current filters to spreadsheet view when switching to it
+  if (view === 'spreadsheet') {
+    const searchInput = document.getElementById('test-search');
+    const filterSelect = document.getElementById('test-filter');
+    applyGlobalFilter(searchInput?.value || '', filterSelect?.value || 'all');
+  }
+}
+
+/**
+ * Render column visibility menu
+ */
+function renderColumnVisibilityMenu() {
+  const menu = document.getElementById('column-visibility-menu');
+  if (!menu) return;
+
+  const columns = getColumns();
+  const visibleColumns = getVisibleColumns();
+
+  let html = '';
+  columns.forEach(col => {
+    const checked = visibleColumns.has(col.id) ? 'checked' : '';
+    html += `
+      <label class="column-visibility-item">
+        <input type="checkbox" data-column="${col.id}" ${checked}>
+        <span>${col.label}</span>
+      </label>
+    `;
+  });
+
+  menu.innerHTML = html;
+
+  // Attach change handlers
+  menu.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      toggleColumn(e.target.dataset.column);
+      // Update checkbox state after toggle (in case it's enforced)
+      const newVisibleColumns = getVisibleColumns();
+      e.target.checked = newVisibleColumns.has(e.target.dataset.column);
+    });
   });
 }
 

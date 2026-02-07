@@ -88,6 +88,7 @@ interface TestResult {
   error: string | null;
   errorStack?: string | null;
   deletedAt?: Date | null;
+  file?: string | null;
 }
 
 /** Suite with tests */
@@ -546,6 +547,7 @@ export class DashboardServer {
         t.test_slug as id,
         t.current_name as name,
         t.suite_name,
+        t.test_file,
         tr.status,
         tr.duration_ms as duration,
         tr.error_message as error,
@@ -583,7 +585,8 @@ export class DashboardServer {
         duration: (test.duration as number) || 0,
         error: (test.error as string) || null,
         errorStack: (test.stack_trace as string) || null,
-        deletedAt: test.deleted_at as Date | null
+        deletedAt: test.deleted_at as Date | null,
+        file: (test.test_file as string) || null
       });
     });
 

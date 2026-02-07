@@ -870,6 +870,11 @@ select option {
   opacity: 0.8;
 }
 
+.status-badge.deleted {
+  color: var(--color-text-tertiary);
+  opacity: 0.7;
+}
+
 .test-name {
   font-weight: var(--weight-regular);
   color: var(--color-text-primary);
@@ -1758,5 +1763,355 @@ select option {
 
   .analytics-cards {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============================================================================
+   SPREADSHEET VIEW STYLES
+   ============================================================================ */
+
+/* View Toggle Buttons */
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-default);
+  overflow: hidden;
+}
+
+.view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  background: var(--color-bg-secondary);
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-toggle-btn:first-child {
+  border-right: 1px solid var(--color-border);
+}
+
+.view-toggle-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.view-toggle-btn.active {
+  background: var(--color-accent-primary);
+  color: var(--color-bg-primary);
+}
+
+.view-toggle-btn.active:hover {
+  background: var(--color-brand-secondary);
+}
+
+/* View-specific controls container */
+.view-specific-controls {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* Column Visibility Dropdown */
+.column-visibility-dropdown {
+  position: relative;
+}
+
+.column-visibility-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 180px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-default);
+  box-shadow: var(--shadow-3);
+  padding: var(--space-2);
+  display: none;
+}
+
+.column-visibility-menu.open {
+  display: block;
+}
+
+.column-visibility-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  transition: background-color 0.2s;
+}
+
+.column-visibility-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.column-visibility-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-accent-primary);
+}
+
+/* Spreadsheet Container */
+.spreadsheet-container {
+  overflow-x: auto;
+}
+
+/* Spreadsheet Table */
+.spreadsheet-table {
+  width: max-content;      /* Allow table to expand beyond container */
+  min-width: 100%;         /* At minimum, fill container width */
+  border-collapse: collapse;
+  font-size: var(--text-md);
+  background: var(--color-bg-primary);
+}
+
+.spreadsheet-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg-secondary);
+}
+
+.spreadsheet-table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  white-space: nowrap;
+  border-bottom: 2px solid var(--color-border-emphasis);
+  background: var(--color-bg-secondary);
+}
+
+.spreadsheet-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.spreadsheet-table th.sortable:hover {
+  background: var(--color-bg-hover);
+}
+
+.spreadsheet-table th .header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.spreadsheet-table th .sort-indicator {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.spreadsheet-table th.sortable:hover .sort-indicator {
+  color: var(--color-accent-primary);
+}
+
+/* Filter Row */
+.spreadsheet-table .filter-row th {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.spreadsheet-table .filter-cell {
+  background: var(--color-bg-primary);
+}
+
+.spreadsheet-table .column-filter {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  transition: border-color 0.2s;
+}
+
+.spreadsheet-table .column-filter:focus {
+  outline: none;
+  border-color: var(--color-accent-primary);
+}
+
+.spreadsheet-table .column-filter::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* Spreadsheet Table Body */
+.spreadsheet-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.spreadsheet-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.spreadsheet-table tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Spreadsheet Row States */
+.spreadsheet-row.deleted-test {
+  opacity: 0.5;
+}
+
+.spreadsheet-row.deleted-test .test-name-cell {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.spreadsheet-row.todo-test {
+  opacity: 0.7;
+}
+
+.spreadsheet-row.todo-test .test-name-cell {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* Cell-specific Styling */
+.spreadsheet-table .cell-status {
+  width: 100px;
+  white-space: nowrap;
+}
+
+.spreadsheet-table .cell-name {
+  min-width: 200px;
+}
+
+.spreadsheet-table .cell-suite {
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+.spreadsheet-table .cell-duration,
+.spreadsheet-table .cell-responseTime {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+
+.spreadsheet-table .cell-error {
+  max-width: 250px;
+}
+
+.spreadsheet-table .error-cell {
+  color: var(--color-error);
+  font-size: var(--text-sm);
+  word-break: break-word;
+}
+
+.spreadsheet-table .no-error {
+  color: var(--color-text-tertiary);
+}
+
+.spreadsheet-table .endpoint-cell,
+.spreadsheet-table .file-cell {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--color-bg-secondary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.spreadsheet-table .suite-cell {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Method Badge in Spreadsheet */
+.spreadsheet-table .method-badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  text-transform: uppercase;
+}
+
+.spreadsheet-table .method-badge.get {
+  background: var(--color-info);
+  color: var(--color-bg-primary);
+}
+
+.spreadsheet-table .method-badge.post {
+  background: var(--color-success);
+  color: var(--color-bg-primary);
+}
+
+.spreadsheet-table .method-badge.put,
+.spreadsheet-table .method-badge.patch {
+  background: var(--color-warning);
+  color: var(--color-bg-primary);
+}
+
+.spreadsheet-table .method-badge.delete {
+  background: var(--color-error);
+  color: var(--color-bg-primary);
+}
+
+/* Status Code in Spreadsheet */
+.spreadsheet-table .status-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+}
+
+.spreadsheet-table .status-code.success-code {
+  color: var(--color-success);
+}
+
+.spreadsheet-table .status-code.redirect-code {
+  color: var(--color-warning);
+}
+
+.spreadsheet-table .status-code.error-code {
+  color: var(--color-error);
+}
+
+/* Empty State for Spreadsheet */
+.spreadsheet-table .spreadsheet-empty {
+  text-align: center;
+  padding: var(--space-12);
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+}
+
+/* Responsive: Hide spreadsheet on small screens */
+@media (max-width: 768px) {
+  .view-toggle {
+    display: none;
+  }
+
+  .spreadsheet-container {
+    display: none !important;
+  }
+
+  #spreadsheet-controls {
+    display: none !important;
   }
 }

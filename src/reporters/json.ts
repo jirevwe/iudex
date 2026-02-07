@@ -46,7 +46,7 @@ function getLoggerInstance(): Logger {
  * Persists test results to local JSON files for offline analysis
  */
 export class JsonReporter {
-  private config: Required<JsonReporterConfig>;
+  config: Required<JsonReporterConfig>;
 
   constructor(config: JsonReporterConfig = {}) {
     this.config = {

@@ -135,8 +135,8 @@ function renderTable() {
         const isUnimplemented = test.status === 'todo';
         const todoClass = isUnimplemented ? 'todo-test' : '';
 
-        // Show original status if test was deleted (not the 'deleted' status)
-        const displayStatus = test.status === 'deleted' ? 'skipped' : test.status;
+        // Show 'deleted' status if test is deleted
+        const displayStatus = isDeleted ? 'deleted' : test.status;
 
         html += `
           <tr class="test-row ${rowClass} ${hiddenClass} ${deletedClass} ${todoClass}"
