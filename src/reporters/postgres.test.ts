@@ -207,6 +207,20 @@ describe('PostgresReporter', () => {
   });
 
   describe('report() - errors', () => {
+    let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+    let consoleLogSpy: jest.SpiedFunction<typeof console.log>;
+
+    beforeEach(() => {
+      // Suppress console output during error tests to prevent Jest from detecting errors
+      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    });
+
     test('should handle errors gracefully without throwing by default', async () => {
       jest.spyOn(reporter, 'initialize').mockRejectedValue(new Error('Connection failed'));
 
