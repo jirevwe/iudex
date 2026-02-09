@@ -1,8 +1,16 @@
 {
-  "name": "iudex",
+  "name": "@jirevwe/iudex",
   "version": "1.0.0",
   "type": "module",
-  "description": "JavaScript API testing framework with built-in governance and security checks",
+  "description": "API testing framework with built-in governance and security checks",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jirevwe/iudex.git"
+  },
+  "homepage": "https://github.com/jirevwe/iudex#readme",
+  "bugs": {
+    "url": "https://github.com/jirevwe/iudex/issues"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -56,15 +64,28 @@
     "migrate:create": "node-pg-migrate create",
     "migrate:up": "node-pg-migrate up",
     "migrate:down": "node-pg-migrate down",
-    "migrate:status": "node-pg-migrate up --dry-run"
+    "migrate:status": "node-pg-migrate up --dry-run",
+    "lint:pkg": "publint",
+    "prepublishOnly": "npm run build && npm run test:unit && npm run lint:pkg",
+    "preversion": "npm run test:unit",
+    "postversion": "git push && git push --tags"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "keywords": [
     "api",
     "testing",
     "governance",
     "security",
     "rest",
-    "http"
+    "http",
+    "api-testing",
+    "test-framework",
+    "typescript"
   ],
   "author": "Raymond Tukpe",
   "license": "MIT",
@@ -92,6 +113,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",
+    "publint": "^0.2.7",
     "@testcontainers/postgresql": "^11.11.0",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
