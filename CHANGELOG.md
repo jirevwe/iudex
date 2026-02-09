@@ -44,5 +44,5 @@
 
 - N/A (initial release)
 
-[unreleased]: https://github.com/jirevwe/iudex/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/jirevwe/iudex/releases/tag/v1.0.0
+[unreleased]: https://github.com/rtukpe/iudex/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/rtukpe/iudex/releases/tag/v1.0.0

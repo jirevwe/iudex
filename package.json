@@ -1,15 +1,15 @@
 {
-  "name": "@jirevwe/iudex",
+  "name": "@rtukpe/iudex",
   "version": "1.0.0",
   "type": "module",
   "description": "API testing framework with built-in governance and security checks",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jirevwe/iudex.git"
+    "url": "git+https://github.com/rtukpe/iudex.git"
   },
-  "homepage": "https://github.com/jirevwe/iudex#readme",
+  "homepage": "https://github.com/rtukpe/iudex#readme",
   "bugs": {
-    "url": "https://github.com/jirevwe/iudex/issues"
+    "url": "https://github.com/rtukpe/iudex/issues"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
