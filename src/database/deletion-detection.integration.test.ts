@@ -74,6 +74,9 @@ describe('Deletion Detection - Integration Tests', () => {
 
   beforeEach(async () => {
     // Create a test run for each test
+    // Use a future date to ensure started_at is after any tests' last_seen_at
+    // This is necessary because markDeletedTests only marks tests where last_seen_at < started_at
+    const futureDate = new Date(Date.now() + 1000);
     runId = await repository.createTestRun(suiteId, {
       environment: 'test',
       branch: 'main',
@@ -85,8 +88,8 @@ describe('Deletion Detection - Integration Tests', () => {
       failedTests: 0,
       skippedTests: 0,
       durationMs: 0,
-      startedAt: new Date(),
-      completedAt: new Date(),
+      startedAt: futureDate,
+      completedAt: futureDate,
       triggeredBy: 'test',
       runUrl: null
     });
@@ -407,6 +410,15 @@ describe('Deletion Detection - Integration Tests', () => {
       // Wait a bit
       await new Promise(resolve => setTimeout(resolve, 100));
 
+      // Create the second test BEFORE the test run
+      await repository.findOrCreateTest({
+        name: 'Second deleted',
+        testSlug: 'deletion.second',
+        suiteName: 'Deletion Test Suite'
+      });
+
+      // Use a future date to ensure started_at is after the test's last_seen_at
+      const futureDate2 = new Date(Date.now() + 1000);
       const runId2 = await repository.createTestRun(suiteId, {
         environment: 'test',
         branch: 'main',
@@ -418,17 +430,12 @@ describe('Deletion Detection - Integration Tests', () => {
         failedTests: 0,
         skippedTests: 0,
         durationMs: 0,
-        startedAt: new Date(),
-        completedAt: new Date(),
+        startedAt: futureDate2,
+        completedAt: futureDate2,
         triggeredBy: 'test',
         runUrl: null
       });
 
-      await repository.findOrCreateTest({
-        name: 'Second deleted',
-        testSlug: 'deletion.second',
-        suiteName: 'Deletion Test Suite'
-      });
       await repository.markDeletedTests(runId2, [], ['Deletion Test Suite']);
 
       // Get deleted tests

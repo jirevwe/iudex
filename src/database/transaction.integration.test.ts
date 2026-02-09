@@ -359,23 +359,9 @@ describe('Transaction Support - Integration Tests', () => {
 
   describe('Transaction Atomicity', () => {
     test('should ensure markDeletedTests is atomic', async () => {
-      const runId = await repository.createTestRun(suiteId, {
-        environment: 'test',
-        branch: 'main',
-        commitSha: 'mno345',
-        status: 'passed',
-        totalTests: 2,
-        passedTests: 2,
-        failedTests: 0,
-        skippedTests: 0,
-        durationMs: 1000,
-        startedAt: new Date(),
-        completedAt: new Date()
-      });
-
       const baseSlug = 'atomic-delete-' + Date.now();
 
-      // Create 3 tests
+      // Create 3 tests FIRST (so they have earlier last_seen_at)
       await repository.findOrCreateTest({
         name: 'Test 1',
         testSlug: `${baseSlug}-1`,
@@ -390,6 +376,23 @@ describe('Transaction Support - Integration Tests', () => {
         name: 'Test 3',
         testSlug: `${baseSlug}-3`,
         suiteName: 'Atomic Suite'
+      });
+
+      // Create the test run AFTER tests exist (so started_at > last_seen_at)
+      // Use a future date to ensure started_at is after the tests' last_seen_at
+      const futureDate = new Date(Date.now() + 1000);
+      const runId = await repository.createTestRun(suiteId, {
+        environment: 'test',
+        branch: 'main',
+        commitSha: 'mno345',
+        status: 'passed',
+        totalTests: 2,
+        passedTests: 2,
+        failedTests: 0,
+        skippedTests: 0,
+        durationMs: 1000,
+        startedAt: futureDate,
+        completedAt: futureDate
       });
 
       // Mark 2 of them as "current" (so the 3rd should be marked deleted)
