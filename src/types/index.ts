@@ -375,8 +375,19 @@ export interface DatabaseConfig {
   user?: string;
   /** Database password */
   password?: string;
-  /** Use SSL connection */
-  ssl?: boolean | { rejectUnauthorized: boolean };
+  /**
+   * SSL configuration for database connection
+   * - `false`: Disable SSL
+   * - `true`: Enable SSL with default settings
+   * - `{ rejectUnauthorized: false }`: Accept self-signed certificates (DigitalOcean, etc.)
+   * - `{ rejectUnauthorized: true, ca: '...' }`: Use CA certificate for verification
+   *
+   * Environment variables:
+   * - DB_SSL: 'true', 'false', or 'require'
+   * - DB_SSL_REJECT_UNAUTHORIZED: 'false' to accept self-signed certificates
+   * - DB_CA_CERT: CA certificate content
+   */
+  ssl?: boolean | { rejectUnauthorized: boolean; ca?: string };
   /** Connection pool size */
   max?: number;
   /** Idle timeout in milliseconds */

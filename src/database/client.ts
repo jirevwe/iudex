@@ -100,6 +100,82 @@ export class DatabaseClient {
   private isConnected = false;
   private metrics: Metrics;
 
+  /**
+   * Parse SSL configuration from config object or environment variables
+   * Supports DigitalOcean and other cloud providers with self-signed certificates
+   *
+   * Environment variables:
+   * - DB_SSL: 'true', 'false', or 'require' to enable/disable SSL
+   *   - 'require': SSL enabled, no certificate verification (for DigitalOcean, etc.)
+   *   - 'true': SSL enabled with certificate verification
+   * - DB_SSL_REJECT_UNAUTHORIZED: 'true' or 'false' to override certificate verification
+   * - DB_CA_CERT: CA certificate content for secure connections
+   */
+  private parseSSLConfig(
+    configSsl?: boolean | { rejectUnauthorized: boolean; ca?: string }
+  ): boolean | { rejectUnauthorized: boolean; ca?: string } | undefined {
+    // If config explicitly provides SSL settings, use them
+    if (configSsl !== undefined) {
+      // If it's an object, return as-is (supports { rejectUnauthorized: false, ca: '...' })
+      if (typeof configSsl === 'object') {
+        return configSsl;
+      }
+      // If it's a boolean false, disable SSL
+      if (configSsl === false) {
+        return false;
+      }
+      // If it's boolean true, check env vars for additional config
+    }
+
+    // Check environment variables
+    const dbSsl = process.env.DB_SSL?.toLowerCase();
+    const rejectUnauthorizedEnv = process.env.DB_SSL_REJECT_UNAUTHORIZED?.toLowerCase();
+    const caCert = process.env.DB_CA_CERT;
+
+    // If DB_SSL is explicitly 'false', disable SSL
+    if (dbSsl === 'false') {
+      return false;
+    }
+
+    // If DB_SSL is 'true' or 'require', or if CA cert is provided, enable SSL
+    if (dbSsl === 'true' || dbSsl === 'require' || caCert) {
+      // Determine rejectUnauthorized:
+      // - 'require' mode: no cert verification (like PostgreSQL sslmode=require)
+      // - 'true' mode: verify certs by default
+      // - Explicit DB_SSL_REJECT_UNAUTHORIZED overrides both
+      let rejectUnauthorized: boolean;
+      if (rejectUnauthorizedEnv !== undefined) {
+        // Explicit override takes precedence
+        rejectUnauthorized = rejectUnauthorizedEnv !== 'false';
+      } else if (dbSsl === 'require') {
+        // 'require' mode: SSL without cert verification (DigitalOcean, etc.)
+        rejectUnauthorized = false;
+      } else {
+        // Default: verify certificates
+        rejectUnauthorized = true;
+      }
+
+      const sslConfig: { rejectUnauthorized: boolean; ca?: string } = {
+        rejectUnauthorized
+      };
+
+      // Add CA certificate if provided
+      if (caCert) {
+        sslConfig.ca = caCert;
+      }
+
+      return sslConfig;
+    }
+
+    // If configSsl was true but no env vars set, return true (use pg defaults)
+    if (configSsl === true) {
+      return true;
+    }
+
+    // Default: no SSL
+    return false;
+  }
+
   constructor(config: ClientConfig = {}) {
     this.config = {
       host: config.host || process.env.DB_HOST || 'localhost',
@@ -107,7 +183,7 @@ export class DatabaseClient {
       database: config.database || process.env.DB_NAME || 'iudex',
       user: config.user || process.env.DB_USER || 'postgres',
       password: config.password || process.env.DB_PASSWORD,
-      ssl: config.ssl !== undefined ? config.ssl : false,
+      ssl: this.parseSSLConfig(config.ssl),
       max: config.poolSize || 10,
       idleTimeoutMillis: config.keepAliveTimeout || 30000,
       connectionTimeoutMillis: config.connectionTimeout || 2000,
