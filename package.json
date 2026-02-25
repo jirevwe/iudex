@@ -1,6 +1,6 @@
 {
   "name": "@rtukpe/iudex",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "type": "module",
   "description": "API testing framework with built-in governance and security checks",
   "repository": {

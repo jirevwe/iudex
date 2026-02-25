@@ -200,6 +200,7 @@ export class PostgresReporter {
    * Run database migrations
    */
   async runMigrations(): Promise<void> {
+    const { default: pg } = await import('pg');
     const { runner } = await import('node-pg-migrate');
     const { fileURLToPath } = await import('url');
     const { dirname, join } = await import('path');
@@ -208,18 +209,63 @@ export class PostgresReporter {
     const __dirname = dirname(__filename);
     const migrationsDir = join(__dirname, '../../database/migrations');
 
-    // Build database URL
-    const databaseUrl = this.config.connectionString ||
-      `postgresql://${this.config.user}:${this.config.password}@${this.config.host || 'localhost'}:${this.config.port || 5432}/${this.config.database}`;
+    // Create a pg Client with SSL config for migrations
+    // Use environment variables for SSL configuration
+    const dbSsl = process.env.DB_SSL?.toLowerCase();
+    const rejectUnauthorizedEnv = process.env.DB_SSL_REJECT_UNAUTHORIZED?.toLowerCase();
+    const caCert = process.env.DB_CA_CERT;
+    const caCertFile = process.env.DB_CA_CERT_FILE;
 
-    await runner({
-      databaseUrl,
-      dir: migrationsDir,
-      direction: 'up',
-      migrationsTable: 'migrations',
-      verbose: false,
-      log: (msg: string) => getLoggerInstance().debug(msg)
+    let sslConfig: boolean | { rejectUnauthorized: boolean; ca?: string } | undefined = false;
+
+    if (dbSsl === 'true' || dbSsl === 'require' || caCert || caCertFile) {
+      let rejectUnauthorized: boolean;
+      if (rejectUnauthorizedEnv !== undefined) {
+        rejectUnauthorized = rejectUnauthorizedEnv !== 'false';
+      } else if (dbSsl === 'require') {
+        rejectUnauthorized = false;
+      } else {
+        rejectUnauthorized = true;
+      }
+
+      sslConfig = { rejectUnauthorized };
+
+      // Load CA cert if file path is provided
+      if (caCertFile) {
+        const fs = await import('fs');
+        try {
+          sslConfig.ca = fs.readFileSync(caCertFile, 'utf-8');
+        } catch {
+          getLoggerInstance().warn('Failed to read CA certificate file for migrations', { file: caCertFile });
+        }
+      } else if (caCert) {
+        sslConfig.ca = caCert.replace(/\\n/g, '\n');
+      }
+    }
+
+    const client = new pg.Client({
+      host: this.config.host || process.env.DB_HOST || 'localhost',
+      port: this.config.port || parseInt(process.env.DB_PORT || '5432', 10),
+      database: this.config.database || process.env.DB_NAME,
+      user: this.config.user || process.env.DB_USER,
+      password: this.config.password || process.env.DB_PASSWORD,
+      ssl: sslConfig
     });
+
+    await client.connect();
+
+    try {
+      await runner({
+        dbClient: client,
+        dir: migrationsDir,
+        direction: 'up',
+        migrationsTable: 'migrations',
+        verbose: false,
+        log: (msg: string) => getLoggerInstance().debug(msg)
+      });
+    } finally {
+      await client.end();
+    }
   }
 
   /**

@@ -3,6 +3,7 @@
  * PostgreSQL connection pool with query execution and error handling
  */
 
+import fs from 'fs';
 import pg from 'pg';
 import { getLogger } from '../core/logger.js';
 import type { DatabaseConfig, Logger } from '../types/index.js';
@@ -101,6 +102,37 @@ export class DatabaseClient {
   private metrics: Metrics;
 
   /**
+   * Resolve CA certificate from environment variable or file
+   * Handles escaped newlines (\n) in certificate strings
+   *
+   * @param certContent - Direct certificate content from DB_CA_CERT
+   * @returns Resolved certificate string or undefined
+   */
+  private resolveCACert(certContent?: string): string | undefined {
+    // First, check for file path
+    const certFile = process.env.DB_CA_CERT_FILE;
+    if (certFile) {
+      try {
+        return fs.readFileSync(certFile, 'utf-8');
+      } catch (error) {
+        getLoggerInstance().warn('Failed to read CA certificate file', {
+          file: certFile,
+          error: (error as Error).message
+        });
+      }
+    }
+
+    // Use direct cert content if provided
+    if (certContent) {
+      // Convert escaped newlines to actual newlines
+      // This handles certs passed as: "-----BEGIN...\nMII...\n-----END..."
+      return certContent.replace(/\\n/g, '\n');
+    }
+
+    return undefined;
+  }
+
+  /**
    * Parse SSL configuration from config object or environment variables
    * Supports DigitalOcean and other cloud providers with self-signed certificates
    *
@@ -109,7 +141,8 @@ export class DatabaseClient {
    *   - 'require': SSL enabled, no certificate verification (for DigitalOcean, etc.)
    *   - 'true': SSL enabled with certificate verification
    * - DB_SSL_REJECT_UNAUTHORIZED: 'true' or 'false' to override certificate verification
-   * - DB_CA_CERT: CA certificate content for secure connections
+   * - DB_CA_CERT: CA certificate content (supports escaped \n for newlines)
+   * - DB_CA_CERT_FILE: Path to CA certificate file
    */
   private parseSSLConfig(
     configSsl?: boolean | { rejectUnauthorized: boolean; ca?: string }
@@ -131,6 +164,7 @@ export class DatabaseClient {
     const dbSsl = process.env.DB_SSL?.toLowerCase();
     const rejectUnauthorizedEnv = process.env.DB_SSL_REJECT_UNAUTHORIZED?.toLowerCase();
     const caCert = process.env.DB_CA_CERT;
+    const caCertFile = process.env.DB_CA_CERT_FILE;
 
     // If DB_SSL is explicitly 'false', disable SSL
     if (dbSsl === 'false') {
@@ -138,7 +172,7 @@ export class DatabaseClient {
     }
 
     // If DB_SSL is 'true' or 'require', or if CA cert is provided, enable SSL
-    if (dbSsl === 'true' || dbSsl === 'require' || caCert) {
+    if (dbSsl === 'true' || dbSsl === 'require' || caCert || caCertFile) {
       // Determine rejectUnauthorized:
       // - 'require' mode: no cert verification (like PostgreSQL sslmode=require)
       // - 'true' mode: verify certs by default
@@ -159,9 +193,10 @@ export class DatabaseClient {
         rejectUnauthorized
       };
 
-      // Add CA certificate if provided
-      if (caCert) {
-        sslConfig.ca = caCert;
+      // Add CA certificate if provided (from env var or file)
+      const resolvedCert = this.resolveCACert(caCert);
+      if (resolvedCert) {
+        sslConfig.ca = resolvedCert;
       }
 
       return sslConfig;
